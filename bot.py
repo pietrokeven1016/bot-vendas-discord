@@ -1,47 +1,56 @@
 import discord
-import os
 from discord.ext import commands
 from discord.ui import Button, View
+import os
 
-# intents
 intents = discord.Intents.default()
 intents.message_content = True
 
-# bot
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
     print(f"Bot conectado como {bot.user}")
 
-# painel de venda
+# ===== PAINEL DE VENDAS =====
+
 class PainelVenda(View):
     def __init__(self):
         super().__init__(timeout=None)
-
-        botao = Button(
+        self.add_item(Button(
             label="💰 Comprar Conta",
-            style=discord.ButtonStyle.green
-        )
+            style=discord.ButtonStyle.green,
+            custom_id="comprar_conta"
+        ))
 
-        botao.callback = self.comprar
-        self.add_item(botao)
-
-    async def comprar(self, interaction: discord.Interaction):
-        await interaction.response.send_message(
-            "✅ Botão funcionando!\n\n🔒 Pagamento via PIX será integrado em breve.",
-            ephemeral=True
-        )
-
-# comando do painel
 @bot.command()
 async def painel(ctx):
-    await ctx.send("🛒 **Painel de Compras**", view=PainelVenda())
+    embed = discord.Embed(
+        title="🛒 Loja Oficial - Blox Fruits",
+        description=(
+            "**📦 Produto:** Conta de Blox Fruits\n"
+            "**💵 Preço:** R$ XX,XX\n"
+            "**⚡ Entrega:** Automática após pagamento\n\n"
+            "Clique no botão abaixo para iniciar a compra 👇"
+        ),
+        color=discord.Color.green()
+    )
 
-# comando teste
-@bot.command()
-async def teste(ctx):
-    await ctx.send("FUNCIONOU ✅")
+    embed.set_footer(text="Mkz Store • Compra segura")
 
-# iniciar bot (TOKEN VEM DO RAILWAY)
+    await ctx.send(embed=embed, view=PainelVenda())
+
+# ===== INTERAÇÃO DO BOTÃO =====
+
+@bot.event
+async def on_interaction(interaction: discord.Interaction):
+    if interaction.type == discord.InteractionType.component:
+        if interaction.data["custom_id"] == "comprar_conta":
+            await interaction.response.send_message(
+                "✅ Pedido iniciado!\n\n"
+                "💳 O pagamento via **PIX** será o próximo passo.\n"
+                "_(Mercado Pago em breve)_",
+                ephemeral=True
+            )
+
 bot.run(os.getenv("DISCORD_TOKEN"))
