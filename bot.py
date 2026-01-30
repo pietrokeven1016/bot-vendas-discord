@@ -1,57 +1,27 @@
 import discord
 from discord.ext import commands
-import os
 
-# =========================
-# CONFIGURAÇÕES (IDs)
-# =========================
+TOKEN = "SEU_TOKEN_AQUI"
 
-TOKEN = os.getenv("DISCORD_TOKEN")  # coloque no painel de variáveis do host
-
-CATEGORY_TICKET_ID = 123456789012345678  # ID da categoria de tickets
-STAFF_ROLE_ID = 123456789012345678       # ID do cargo da staff
-
-# =========================
-# BOT
-# =========================
+GUILD_ID = 123456789012345678      # ID do servidor
+CATEGORY_ID = 123456789012345678   # ID da categoria dos tickets
+STAFF_ROLE_ID = 123456789012345678 # ID do cargo staff
 
 intents = discord.Intents.default()
-intents.message_content = True
-intents.guilds = True
 intents.members = True
+intents.guilds = True
+intents.messages = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# =========================
-# EVENTOS
-# =========================
 
 @bot.event
 async def on_ready():
     print(f"Bot conectado como {bot.user}")
 
-# =========================
-# COMANDOS
-# =========================
 
-@bot.command()
-async def teste(ctx):
-    await ctx.send("✅ Bot está funcionando!")
-
-@bot.command()
-async def painel(ctx):
-    embed = discord.Embed(
-        title="🛒 Central de Atendimento",
-        description="Clique no botão abaixo para abrir um ticket",
-        color=discord.Color.green()
-    )
-    await ctx.send(embed=embed, view=PainelView())
-
-# =========================
-# VIEW DO PAINEL
-# =========================
-
-class PainelView(discord.ui.View):
+# 🔘 BOTÃO DO TICKET
+class TicketButton(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
@@ -62,74 +32,60 @@ class PainelView(discord.ui.View):
     )
     async def abrir_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
 
-        await interaction.response.defer(ephemeral=True)
-
         guild = interaction.guild
-        categoria = guild.get_channel(CATEGORY_TICKET_ID)
-        staff_role = guild.get_role(STAFF_ROLE_ID)
+        member = interaction.member
 
-        if categoria is None or staff_role is None:
-            await interaction.followup.send(
-                "❌ Categoria ou cargo da staff não encontrado.",
+        # 🔒 VERIFICA CARGO STAFF
+        if STAFF_ROLE_ID not in [role.id for role in member.roles]:
+            await interaction.response.send_message(
+                "❌ Você não tem o cargo necessário para abrir ticket.",
                 ephemeral=True
             )
             return
 
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
-            staff_role: discord.PermissionOverwrite(view_channel=True, send_messages=True)
-        }
+        category = guild.get_channel(CATEGORY_ID)
+        if category is None:
+            await interaction.response.send_message(
+                "❌ Categoria de tickets não encontrada.",
+                ephemeral=True
+            )
+            return
 
+        # 🆕 CRIA CANAL
         channel = await guild.create_text_channel(
-            name=f"ticket-{interaction.user.name}",
-            category=categoria,
-            overwrites=overwrites
+            name=f"ticket-{member.name}",
+            category=category,
+            overwrites={
+                guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                member: discord.PermissionOverwrite(view_channel=True, send_messages=True),
+                guild.get_role(STAFF_ROLE_ID): discord.PermissionOverwrite(
+                    view_channel=True,
+                    send_messages=True
+                )
+            }
         )
 
-        await interaction.followup.send(
+        await interaction.response.send_message(
             f"✅ Ticket criado: {channel.mention}",
             ephemeral=True
         )
 
         await channel.send(
-            f"🎟️ Ticket aberto por {interaction.user.mention}",
-            view=FecharTicketView()
+            f"🎫 **Ticket aberto por {member.mention}**\n"
+            "Explique seu problema e aguarde um staff."
         )
 
-# =========================
-# VIEW DE FECHAR TICKET
-# =========================
 
-class FecharTicketView(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    @discord.ui.button(
-        label="🔒 Fechar Ticket",
-        style=discord.ButtonStyle.red,
-        custom_id="fechar_ticket"
+# 📌 COMANDO DO PAINEL
+@bot.command()
+@commands.has_permissions(administrator=True)
+async def painel(ctx):
+    embed = discord.Embed(
+        title="🎟️ Central de Atendimento",
+        description="Clique no botão abaixo para abrir um ticket.",
+        color=discord.Color.green()
     )
-    async def fechar_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
+    await ctx.send(embed=embed, view=TicketButton())
 
-        staff_role = interaction.guild.get_role(STAFF_ROLE_ID)
-
-        if staff_role not in interaction.user.roles:
-            await interaction.response.send_message(
-                "❌ Apenas a staff pode fechar este ticket.",
-                ephemeral=True
-            )
-            return
-
-        await interaction.response.send_message(
-            "⛔ Ticket será fechado em 5 segundos...",
-            ephemeral=True
-        )
-
-        await interaction.channel.delete(delay=5)
-
-# =========================
-# START
-# =========================
 
 bot.run(TOKEN)
