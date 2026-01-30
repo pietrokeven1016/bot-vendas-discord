@@ -1,147 +1,157 @@
 import discord
 from discord.ext import commands
+import logging
 
+# ================= LOGS =================
+logging.basicConfig(level=logging.INFO)
+
+# ================= CONFIG =================
+TOKEN = "SEU_TOKEN_AQUI"
+
+CARGO_STAFF_ID = 123456789012345678  # ID do cargo staff
+CATEGORIA_TICKET_ID = 123456789012345678  # ID da categoria dos tickets
+
+# ================= BOT =================
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ===============================
-# CARRINHO (memória simples)
-# ===============================
+# ================= CARRINHO =================
 carrinhos = {}
 
 produtos = {
-    "1_mitica": {"nome": "1 Mítica Random", "preco": 2.89},
-    "2_mitica": {"nome": "2 Míticas Random", "preco": 4.29},
-    "3_mitica": {"nome": "3 Míticas Random", "preco": 6.99},
-    "4_mitica": {"nome": "4 Míticas Random", "preco": 10.99},
-    "5_mitica": {"nome": "5 Míticas Random", "preco": 13.99},
+    "1 Mitica Random": 2.89,
+    "2 Miticas Random": 4.29,
+    "3 Miticas Random": 6.99,
+    "4 Miticas Random": 10.99,
+    "5 Miticas Random": 13.99,
 }
 
-# ===============================
-# SELECT DE PRODUTOS
-# ===============================
-class ProdutoSelect(discord.ui.Select):
-    def __init__(self):
-        options = [
-            discord.SelectOption(
-                label=produtos[p]["nome"],
-                description=f"R$ {produtos[p]['preco']}",
-                value=p
-            )
-            for p in produtos
-        ]
-
-        super().__init__(
-            placeholder="Selecione um produto",
-            options=options
-        )
-
-    async def callback(self, interaction: discord.Interaction):
-        user_id = interaction.user.id
-        produto = produtos[self.values[0]]
-
-        if user_id not in carrinhos:
-            carrinhos[user_id] = []
-
-        carrinhos[user_id].append(produto)
-
-        await interaction.response.send_message(
-            f"✅ **{produto['nome']}** adicionado ao carrinho!",
-            ephemeral=True
-        )
-
-# ===============================
-# VIEW DO PAINEL
-# ===============================
+# ================= VIEWS =================
 class PainelView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-        self.add_item(ProdutoSelect())
 
-    @discord.ui.button(label="🛒 Ver Carrinho", style=discord.ButtonStyle.primary)
-    async def ver_carrinho(self, interaction: discord.Interaction, button: discord.ui.Button):
-        user_id = interaction.user.id
-        carrinho = carrinhos.get(user_id, [])
+    @discord.ui.select(
+        placeholder="Selecione um produto",
+        options=[
+            discord.SelectOption(label=nome, description=f"R$ {preco}")
+            for nome, preco in produtos.items()
+        ]
+    )
+    async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
+        try:
+            user_id = interaction.user.id
+            carrinhos.setdefault(user_id, [])
+            carrinhos[user_id].append(select.values[0])
 
-        if not carrinho:
             await interaction.response.send_message(
-                "❌ Seu carrinho está vazio.",
+                f"✅ **{select.values[0]}** adicionado ao carrinho!",
+                view=CarrinhoView(),
                 ephemeral=True
             )
-            return
+        except Exception as e:
+            print("ERRO SELECT:", e)
 
-        total = sum(p["preco"] for p in carrinho)
-
-        descricao = ""
-        for p in carrinho:
-            descricao += f"• {p['nome']} — R$ {p['preco']}\n"
-
-        embed = discord.Embed(
-            title="🛒 Seu Carrinho",
-            description=descricao,
-            color=0x9b59b6
-        )
-        embed.add_field(name="💰 Total", value=f"R$ {total:.2f}", inline=False)
-
-        await interaction.response.send_message(
-            embed=embed,
-            view=CarrinhoView(),
-            ephemeral=True
-        )
-
-# ===============================
-# VIEW DO CARRINHO
-# ===============================
 class CarrinhoView(discord.ui.View):
     def __init__(self):
-        super().__init__(timeout=300)
+        super().__init__(timeout=None)
 
-    @discord.ui.button(label="➕ Continuar comprando", style=discord.ButtonStyle.secondary)
-    async def continuar(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(
-            "🛍️ Use o menu novamente para adicionar mais produtos.",
-            ephemeral=True
-        )
+    @discord.ui.button(label="🛒 Ver carrinho", style=discord.ButtonStyle.secondary)
+    async def ver(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            itens = carrinhos.get(interaction.user.id, [])
+            if not itens:
+                await interaction.response.send_message("Carrinho vazio.", ephemeral=True)
+                return
 
-    @discord.ui.button(label="💳 Ir para pagamento", style=discord.ButtonStyle.success)
+            total = sum(produtos[i] for i in itens)
+            texto = "\n".join(itens)
+
+            await interaction.response.send_message(
+                f"🛒 **Carrinho:**\n{texto}\n\n💰 Total: **R$ {total:.2f}**",
+                ephemeral=True
+            )
+        except Exception as e:
+            print("ERRO CARRINHO:", e)
+
+    @discord.ui.button(label="💳 Finalizar compra", style=discord.ButtonStyle.success)
     async def pagar(self, interaction: discord.Interaction, button: discord.ui.Button):
-        user_id = interaction.user.id
-        carrinho = carrinhos.get(user_id, [])
+        try:
+            guild = interaction.guild
+            categoria = guild.get_channel(CATEGORIA_TICKET_ID)
 
-        total = sum(p["preco"] for p in carrinho)
+            canal = await guild.create_text_channel(
+                name=f"ticket-{interaction.user.name}",
+                category=categoria
+            )
 
-        await interaction.response.send_message(
-            f"💳 **Pagamento iniciado**\n"
-            f"Total: **R$ {total:.2f}**\n\n"
-            "📌 Envie o comprovante para a staff.",
-            ephemeral=True
-        )
+            await canal.set_permissions(interaction.user, read_messages=True, send_messages=True)
+            await canal.set_permissions(guild.default_role, read_messages=False)
 
-# ===============================
-# COMANDO PAINEL
-# ===============================
+            embed = discord.Embed(
+                title="🧾 Ticket de Compra",
+                description="Um staff irá te atender.",
+                color=discord.Color.green()
+            )
+
+            await canal.send(
+                content=f"{interaction.user.mention}",
+                embed=embed,
+                view=FecharTicketView()
+            )
+
+            await interaction.response.send_message(
+                f"🎫 Ticket criado: {canal.mention}",
+                ephemeral=True
+            )
+        except Exception as e:
+            print("ERRO PAGAMENTO:", e)
+
+class FecharTicketView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="🔒 Fechar ticket", style=discord.ButtonStyle.danger)
+    async def fechar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            cargo = interaction.guild.get_role(CARGO_STAFF_ID)
+
+            if cargo not in interaction.user.roles:
+                await interaction.response.send_message(
+                    "❌ Apenas staff pode fechar o ticket.",
+                    ephemeral=True
+                )
+                return
+
+            await interaction.channel.delete()
+        except Exception as e:
+            print("ERRO FECHAR TICKET:", e)
+
+# ================= COMANDOS =================
 @bot.command()
 async def painel(ctx):
     embed = discord.Embed(
-        title="KNZ STORE | MÍTICAS RANDOM",
-        description=(
-            "🌟 **TODAS POSSUEM:**\n"
-            "👑 GodHuman desbloqueado\n"
-            "🔥 Nível Máximo\n\n"
-            "⬇️ Selecione um produto abaixo"
-        ),
-        color=0x9b59b6
+        title="KNZ STORE | MITICAS RANDOM",
+        description="Selecione um produto abaixo",
+        color=discord.Color.purple()
     )
 
     await ctx.send(embed=embed, view=PainelView())
 
-# ===============================
-# BOT ONLINE
-# ===============================
+@bot.command()
+async def teste(ctx):
+    await ctx.send("✅ Bot funcionando!")
+
+# ================= READY =================
 @bot.event
 async def on_ready():
+    bot.add_view(PainelView())
+    bot.add_view(CarrinhoView())
+    bot.add_view(FecharTicketView())
     print(f"Bot conectado como {bot.user}")
 
-bot.run("SEU_TOKEN_AQUI")
+# ================= RUN =================
+bot.run(TOKEN)
