@@ -1,54 +1,74 @@
+import os
 import discord
 from discord.ext import commands
-import os
+from discord.ui import Button, View
 
-# ===== INTENTS (OBRIGATÓRIO) =====
+# intents
 intents = discord.Intents.default()
-intents.message_content = True  # ESSENCIAL
+intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-
-# ===== EVENTO DE INICIALIZAÇÃO =====
+# =====================
+# EVENTO ON READY
+# =====================
 @bot.event
 async def on_ready():
     print(f"Bot conectado como {bot.user}")
 
-
-# ===== EVENTO PARA COMANDOS FUNCIONAREM =====
-@bot.event
-async def on_message(message):
-    if message.author.bot:
-        return
-
-    # Log para debug
-    print(f"Mensagem recebida: {message.content}")
-
-    await bot.process_commands(message)
-
-
-# ===== COMANDO TESTE =====
+# =====================
+# COMANDO TESTE
+# =====================
 @bot.command()
 async def teste(ctx):
-    await ctx.send("✅ Bot está respondendo!")
+    await ctx.send("✅ Bot está funcionando!")
 
+# =====================
+# VIEW DO PAINEL
+# =====================
+class PainelVenda(View):
+    def __init__(self):
+        super().__init__(timeout=None)
 
-# ===== COMANDO PAINEL =====
+        self.add_item(
+            Button(
+                label="💰 Comprar Conta",
+                style=discord.ButtonStyle.green,
+                custom_id="comprar_conta"
+            )
+        )
+
+# =====================
+# COMANDO PAINEL (NOME NOVO)
+# =====================
 @bot.command()
-async def painel(ctx):
+async def painelvendas(ctx):
     embed = discord.Embed(
-        title="🛒 Painel de Vendas",
-        description="Painel funcionando corretamente!",
+        title="🛒 Painel de Compras",
+        description="Clique no botão abaixo para comprar.",
         color=discord.Color.green()
     )
 
-    await ctx.send(embed=embed)
+    await ctx.send(embed=embed, view=PainelVenda())
 
+# =====================
+# INTERAÇÃO DO BOTÃO
+# =====================
+@bot.event
+async def on_interaction(interaction: discord.Interaction):
+    if interaction.type == discord.InteractionType.component:
+        if interaction.data.get("custom_id") == "comprar_conta":
+            await interaction.response.send_message(
+                "✅ Botão funcionando! (PIX entra depois)",
+                ephemeral=True
+            )
 
-# ===== INICIAR BOT =====
-token = os.getenv("DISCORD_TOKEN")
+# =====================
+# START DO BOT
+# =====================
+TOKEN = os.getenv("DISCORD_TOKEN")
 
-if not token:
+if TOKEN is None:
     raise ValueError("❌ DISCORD_TOKEN não encontrado nas variáveis de ambiente")
 
-bot.run(token)
+bot.run(TOKEN)
