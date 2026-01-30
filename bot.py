@@ -1,62 +1,54 @@
 import discord
 from discord.ext import commands
-from discord.ui import Button, View
 import os
 
-# ===== CONFIGURAÇÕES =====
-
+# ===== INTENTS (OBRIGATÓRIO) =====
 intents = discord.Intents.default()
-intents.message_content = True
+intents.message_content = True  # ESSENCIAL
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ===== EVENTO DE INICIALIZAÇÃO =====
 
+# ===== EVENTO DE INICIALIZAÇÃO =====
 @bot.event
 async def on_ready():
     print(f"Bot conectado como {bot.user}")
 
-# ===== PAINEL DE VENDAS =====
 
-class PainelVenda(View):
-    def __init__(self):
-        super().__init__(timeout=None)
+# ===== EVENTO PARA COMANDOS FUNCIONAREM =====
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
 
-        botao = Button(
-            label="💰 Comprar Conta",
-            style=discord.ButtonStyle.green
-        )
+    # Log para debug
+    print(f"Mensagem recebida: {message.content}")
 
-        botao.callback = self.comprar
-        self.add_item(botao)
+    await bot.process_commands(message)
 
-    async def comprar(self, interaction: discord.Interaction):
-        await interaction.response.send_message(
-            "✅ **Pedido iniciado com sucesso!**\n\n"
-            "💳 Pagamento via **PIX** será o próximo passo.\n"
-            "_Mercado Pago será integrado em breve._",
-            ephemeral=True
-        )
 
-# ===== COMANDO DO PAINEL =====
+# ===== COMANDO TESTE =====
+@bot.command()
+async def teste(ctx):
+    await ctx.send("✅ Bot está respondendo!")
 
+
+# ===== COMANDO PAINEL =====
 @bot.command()
 async def painel(ctx):
     embed = discord.Embed(
-        title="🛒 Loja Oficial - Blox Fruits",
-        description=(
-            "**📦 Produto:** Conta de Blox Fruits\n"
-            "**💵 Preço:** R$ XX,XX\n"
-            "**⚡ Entrega:** Automática após pagamento\n\n"
-            "Clique no botão abaixo para comprar 👇"
-        ),
+        title="🛒 Painel de Vendas",
+        description="Painel funcionando corretamente!",
         color=discord.Color.green()
     )
 
-    embed.set_footer(text="Mkz Store • Compra segura")
+    await ctx.send(embed=embed)
 
-    await ctx.send(embed=embed, view=PainelVenda())
 
 # ===== INICIAR BOT =====
+token = os.getenv("DISCORD_TOKEN")
 
-bot.run(os.getenv("DISCORD_TOKEN"))
+if not token:
+    raise ValueError("❌ DISCORD_TOKEN não encontrado nas variáveis de ambiente")
+
+bot.run(token)
