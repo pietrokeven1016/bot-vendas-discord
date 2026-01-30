@@ -11,16 +11,16 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-CARGO_STAFF = "Staff"  # nome exato do cargo da staff
-CATEGORIA_TICKET = "Tickets"  # nome da categoria
+CARGO_STAFF = "Staff"
+CATEGORIA_TICKET = "Tickets"
 
 @bot.event
 async def on_ready():
     print(f"Bot conectado como {bot.user}")
 
-# ================= BOTÃO =================
+# ================= BOTÕES =================
 
-class TicketButton(ui.View):
+class TicketView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
 
@@ -33,7 +33,6 @@ class TicketButton(ui.View):
         if categoria is None:
             categoria = await guild.create_category(CATEGORIA_TICKET)
 
-        # verifica se já tem ticket
         for canal in categoria.channels:
             if canal.name == f"ticket-{user.id}":
                 await interaction.response.send_message(
@@ -62,13 +61,36 @@ class TicketButton(ui.View):
 
         await canal.send(
             f"🎫 **Ticket aberto!**\n\n"
-            f"Olá {user.mention}, descreva seu pedido.\n"
-            f"Um membro da staff irá te atender em breve."
+            f"{user.mention}, descreva seu pedido.\n"
+            f"Um membro da staff irá te atender.",
+            view=FecharTicketView()
         )
 
         await interaction.response.send_message(
             f"✅ Ticket criado: {canal.mention}", ephemeral=True
         )
+
+class FecharTicketView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @ui.button(label="🔒 Fechar Ticket", style=discord.ButtonStyle.red)
+    async def fechar_ticket(self, interaction: discord.Interaction, button: ui.Button):
+        staff_role = discord.utils.get(interaction.guild.roles, name=CARGO_STAFF)
+
+        if staff_role not in interaction.user.roles:
+            await interaction.response.send_message(
+                "❌ Apenas a **staff** pode fechar o ticket.",
+                ephemeral=True
+            )
+            return
+
+        await interaction.response.send_message(
+            "🔒 Ticket será fechado em 3 segundos...",
+            ephemeral=True
+        )
+
+        await interaction.channel.delete()
 
 # ================= COMANDOS =================
 
@@ -79,7 +101,7 @@ async def painel(ctx):
         description="Clique no botão abaixo para abrir um ticket.",
         color=discord.Color.green()
     )
-    await ctx.send(embed=embed, view=TicketButton())
+    await ctx.send(embed=embed, view=TicketView())
 
 @bot.command()
 async def teste(ctx):
