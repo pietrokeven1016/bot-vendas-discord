@@ -1,110 +1,147 @@
 import discord
 from discord.ext import commands
-from discord import ui
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
 
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-CARGO_STAFF = "Staff"
-CATEGORIA_TICKET = "Tickets"
+# ===============================
+# CARRINHO (memória simples)
+# ===============================
+carrinhos = {}
 
-@bot.event
-async def on_ready():
-    print(f"Bot conectado como {bot.user}")
+produtos = {
+    "1_mitica": {"nome": "1 Mítica Random", "preco": 2.89},
+    "2_mitica": {"nome": "2 Míticas Random", "preco": 4.29},
+    "3_mitica": {"nome": "3 Míticas Random", "preco": 6.99},
+    "4_mitica": {"nome": "4 Míticas Random", "preco": 10.99},
+    "5_mitica": {"nome": "5 Míticas Random", "preco": 13.99},
+}
 
-# ================= BOTÕES =================
-
-class TicketView(ui.View):
+# ===============================
+# SELECT DE PRODUTOS
+# ===============================
+class ProdutoSelect(discord.ui.Select):
     def __init__(self):
-        super().__init__(timeout=None)
-
-    @ui.button(label="🛒 Abrir Ticket", style=discord.ButtonStyle.green)
-    async def abrir_ticket(self, interaction: discord.Interaction, button: ui.Button):
-        guild = interaction.guild
-        user = interaction.user
-
-        categoria = discord.utils.get(guild.categories, name=CATEGORIA_TICKET)
-        if categoria is None:
-            categoria = await guild.create_category(CATEGORIA_TICKET)
-
-        for canal in categoria.channels:
-            if canal.name == f"ticket-{user.id}":
-                await interaction.response.send_message(
-                    "❌ Você já tem um ticket aberto.", ephemeral=True
-                )
-                return
-
-        staff_role = discord.utils.get(guild.roles, name=CARGO_STAFF)
-
-        overwrites = {
-            guild.default_role: discord.PermissionOverwrite(view_channel=False),
-            user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
-            guild.me: discord.PermissionOverwrite(view_channel=True),
-        }
-
-        if staff_role:
-            overwrites[staff_role] = discord.PermissionOverwrite(
-                view_channel=True, send_messages=True
+        options = [
+            discord.SelectOption(
+                label=produtos[p]["nome"],
+                description=f"R$ {produtos[p]['preco']}",
+                value=p
             )
+            for p in produtos
+        ]
 
-        canal = await guild.create_text_channel(
-            name=f"ticket-{user.id}",
-            category=categoria,
-            overwrites=overwrites
+        super().__init__(
+            placeholder="Selecione um produto",
+            options=options
         )
 
-        await canal.send(
-            f"🎫 **Ticket aberto!**\n\n"
-            f"{user.mention}, descreva seu pedido.\n"
-            f"Um membro da staff irá te atender.",
-            view=FecharTicketView()
-        )
+    async def callback(self, interaction: discord.Interaction):
+        user_id = interaction.user.id
+        produto = produtos[self.values[0]]
+
+        if user_id not in carrinhos:
+            carrinhos[user_id] = []
+
+        carrinhos[user_id].append(produto)
 
         await interaction.response.send_message(
-            f"✅ Ticket criado: {canal.mention}", ephemeral=True
+            f"✅ **{produto['nome']}** adicionado ao carrinho!",
+            ephemeral=True
         )
 
-class FecharTicketView(ui.View):
+# ===============================
+# VIEW DO PAINEL
+# ===============================
+class PainelView(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
+        self.add_item(ProdutoSelect())
 
-    @ui.button(label="🔒 Fechar Ticket", style=discord.ButtonStyle.red)
-    async def fechar_ticket(self, interaction: discord.Interaction, button: ui.Button):
-        staff_role = discord.utils.get(interaction.guild.roles, name=CARGO_STAFF)
+    @discord.ui.button(label="🛒 Ver Carrinho", style=discord.ButtonStyle.primary)
+    async def ver_carrinho(self, interaction: discord.Interaction, button: discord.ui.Button):
+        user_id = interaction.user.id
+        carrinho = carrinhos.get(user_id, [])
 
-        if staff_role not in interaction.user.roles:
+        if not carrinho:
             await interaction.response.send_message(
-                "❌ Apenas a **staff** pode fechar o ticket.",
+                "❌ Seu carrinho está vazio.",
                 ephemeral=True
             )
             return
 
+        total = sum(p["preco"] for p in carrinho)
+
+        descricao = ""
+        for p in carrinho:
+            descricao += f"• {p['nome']} — R$ {p['preco']}\n"
+
+        embed = discord.Embed(
+            title="🛒 Seu Carrinho",
+            description=descricao,
+            color=0x9b59b6
+        )
+        embed.add_field(name="💰 Total", value=f"R$ {total:.2f}", inline=False)
+
         await interaction.response.send_message(
-            "🔒 Ticket será fechado em 3 segundos...",
+            embed=embed,
+            view=CarrinhoView(),
             ephemeral=True
         )
 
-        await interaction.channel.delete()
+# ===============================
+# VIEW DO CARRINHO
+# ===============================
+class CarrinhoView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=300)
 
-# ================= COMANDOS =================
+    @discord.ui.button(label="➕ Continuar comprando", style=discord.ButtonStyle.secondary)
+    async def continuar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_message(
+            "🛍️ Use o menu novamente para adicionar mais produtos.",
+            ephemeral=True
+        )
 
+    @discord.ui.button(label="💳 Ir para pagamento", style=discord.ButtonStyle.success)
+    async def pagar(self, interaction: discord.Interaction, button: discord.ui.Button):
+        user_id = interaction.user.id
+        carrinho = carrinhos.get(user_id, [])
+
+        total = sum(p["preco"] for p in carrinho)
+
+        await interaction.response.send_message(
+            f"💳 **Pagamento iniciado**\n"
+            f"Total: **R$ {total:.2f}**\n\n"
+            "📌 Envie o comprovante para a staff.",
+            ephemeral=True
+        )
+
+# ===============================
+# COMANDO PAINEL
+# ===============================
 @bot.command()
 async def painel(ctx):
     embed = discord.Embed(
-        title="🛒 Painel de Atendimento",
-        description="Clique no botão abaixo para abrir um ticket.",
-        color=discord.Color.green()
+        title="KNZ STORE | MÍTICAS RANDOM",
+        description=(
+            "🌟 **TODAS POSSUEM:**\n"
+            "👑 GodHuman desbloqueado\n"
+            "🔥 Nível Máximo\n\n"
+            "⬇️ Selecione um produto abaixo"
+        ),
+        color=0x9b59b6
     )
-    await ctx.send(embed=embed, view=TicketView())
 
-@bot.command()
-async def teste(ctx):
-    await ctx.send("✅ Bot funcionando!")
+    await ctx.send(embed=embed, view=PainelView())
 
-bot.run(os.getenv("DISCORD_TOKEN"))
+# ===============================
+# BOT ONLINE
+# ===============================
+@bot.event
+async def on_ready():
+    print(f"Bot conectado como {bot.user}")
+
+bot.run("SEU_TOKEN_AQUI")
