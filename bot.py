@@ -14,14 +14,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 CARGO_STAFF = "Staff"
 CATEGORIA_TICKET = "Tickets"
 
-# ================= DADOS DAS CONTAS =================
-dados_contas = {
-    "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "R$2.40", "estoque": 1, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
-    "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "R$3.60", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
-    "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "R$5.00", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
-    "4_miticas": {"nome": "4 MÍTICAS RANDOM", "valor": "R$7.00", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
-}
-
 # ================= BOTÃO PARA ABRIR TICKET =================
 class TicketView(ui.View):
     def __init__(self):
@@ -37,7 +29,9 @@ class TicketCompletoView(ui.View):
 
         # Select Menu
         options = [
-            discord.SelectOption(label=v["nome"], value=k) for k, v in dados_contas.items()
+            discord.SelectOption(label="1 MÍTICA RANDOM", value="1_mitica"),
+            discord.SelectOption(label="2 MÍTICAS RANDOM", value="2_miticas"),
+            discord.SelectOption(label="3 MÍTICAS RANDOM", value="3_miticas"),
         ]
         self.add_item(ui.Select(placeholder="Selecione a opção de conta desejada", options=options, custom_id="selecionar_conta"))
 
@@ -52,12 +46,10 @@ async def on_interaction(interaction: discord.Interaction):
         guild = interaction.guild
         user = interaction.user
 
-        # Categoria
         categoria = discord.utils.get(guild.categories, name=CATEGORIA_TICKET)
         if categoria is None:
             categoria = await guild.create_category(CATEGORIA_TICKET)
 
-        # Verifica se já tem ticket
         for canal in categoria.channels:
             if canal.name == f"ticket-{user.id}":
                 await interaction.response.send_message("❌ Você já tem um ticket aberto.", ephemeral=True)
@@ -99,28 +91,23 @@ async def on_interaction(interaction: discord.Interaction):
     # ----------------- SELECT MENU -----------------
     elif interaction.data["custom_id"] == "selecionar_conta":
         escolha = interaction.data["values"][0]
-        conta = dados_contas.get(escolha)
 
-        if not conta:
-            await interaction.response.send_message("❌ Opção inválida.", ephemeral=True)
-            return
+        # Dados de cada opção
+        dados_contas = {
+            "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "R$2.40", "estoque": 1, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
+            "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "R$3.60", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
+            "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "R$5.00", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
+            "4_miticas": {"nome": "4 MÍTICAS RANDOM", "valor": "R$7.00", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
+        }
 
-        # Verifica estoque
-        if conta["estoque"] <= 0:
-            await interaction.response.send_message("❌ Essa conta está sem estoque.", ephemeral=True)
-            return
+        conta = dados_contas[escolha]
 
-        # Arquivo local
-        arquivo = discord.File(conta["icone"], filename=os.path.basename(conta["icone"]))
-
-        # Embed
         embed = discord.Embed(title=conta["nome"], color=discord.Color.green())
         embed.add_field(name="💰 Valor", value=conta["valor"], inline=True)
         embed.add_field(name="📦 Estoque", value=str(conta["estoque"]), inline=True)
-        embed.set_thumbnail(url=f"attachment://{os.path.basename(conta['icone'])}")
+        embed.set_thumbnail(url=conta["icone"])
 
-        # Envia embed + arquivo
-        await interaction.response.send_message(embed=embed, file=arquivo, ephemeral=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # ================= COMANDOS =================
 @bot.command()
