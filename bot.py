@@ -161,13 +161,15 @@ async def on_interaction(interaction: discord.Interaction):
     elif interaction.data["custom_id"].startswith("chamar_staff_"):
         cliente_id = int(interaction.data["custom_id"].split("_")[-1])
         cliente = await bot.fetch_user(cliente_id)
-
         staff_role = guild.get_role(STAFF_ROLE_ID)
         if not staff_role:
             await interaction.response.send_message("❌ Cargo de staff não encontrado.", ephemeral=True)
             return
 
         staff_enviado = False
+        falha_dm = False
+
+        # Tenta enviar DM para todos os membros com a role de staff
         for member in guild.members:
             if staff_role in member.roles:
                 try:
@@ -179,14 +181,23 @@ async def on_interaction(interaction: discord.Interaction):
                     await member.send(embed=embed_staff, view=StaffView(cliente_id))
                     staff_enviado = True
                 except:
-                    continue
+                    falha_dm = True
 
+        # Mensagem para o cliente
         if staff_enviado:
-            await interaction.response.send_message("👮 Staff foi chamada! Aguarde a liberação da conta.", ephemeral=True)
+            msg = "👮 Staff foi chamada! Aguarde a liberação da conta."
+            if falha_dm and interaction.channel:
+                await interaction.channel.send(
+                    f"⚠️ Alguns staffs não puderam receber a DM. Cliente {cliente.mention} realizou o pagamento! "
+                    "Algum staff, por favor, libere a conta usando o botão."
+                )
+            await interaction.response.send_message(msg, ephemeral=True)
         else:
-            canal_ticket = interaction.channel
-            if canal_ticket:
-                await canal_ticket.send(f"❌ Nenhum staff disponível recebeu a DM. Cliente {cliente.mention} realizou o pagamento! Algum staff, por favor, libere a conta usando o botão.")
+            if interaction.channel:
+                await interaction.channel.send(
+                    f"❌ Nenhum staff conseguiu receber a DM. Cliente {cliente.mention} realizou o pagamento! "
+                    "Algum staff, por favor, libere a conta usando o botão."
+                )
             await interaction.response.send_message("❌ Nenhum staff conseguiu receber a DM.", ephemeral=True)
 
     # ----------------- LIBERAR CONTA (STAFF) -----------------
