@@ -146,38 +146,33 @@ async def on_interaction(interaction: discord.Interaction):
             return
 
         ultimo_item = carrinho[-1]
-        qr_file = ""
-        if ultimo_item['nome'] == "1 MÍTICA RANDOM":
-            qr_file = "pix_1.png"
-        elif ultimo_item['nome'] == "2 MÍTICAS RANDOM":
-            qr_file = "pix_2.png"
-        elif ultimo_item['nome'] == "3 MÍTICAS RANDOM":
-            qr_file = "pix_3.png"
-        elif ultimo_item['nome'] == "4 MÍTICAS RANDOM":
-            qr_file = "pix_4.png"
+        qr_file = f"pix_{ultimo_item['nome'].split()[0]}.png"  # pix_1, pix_2, etc.
 
         embed = discord.Embed(
             title="💳 Pagamento",
-            description=f"Escaneie o QR Code abaixo para pagar **{ultimo_item['nome']}**:",
+            description=f"Escaneie o QR Code abaixo para pagar **{ultimo_item['nome']}**.\n💡 Após o pagamento, clique em 'Chamar Staff' para liberar sua conta!",
             color=discord.Color.green()
         )
+
         await interaction.response.send_message(embed=embed, file=discord.File(qr_file), view=ChamarStaffView(cliente_id), ephemeral=True)
 
     # ----------------- CHAMAR STAFF -----------------
     elif interaction.data["custom_id"].startswith("chamar_staff_"):
         cliente_id = int(interaction.data["custom_id"].split("_")[-1])
-        cliente = await bot.fetch_user(cliente_id)
         carrinho = CARRINHOS.get(cliente_id, [])
         if not carrinho:
             await interaction.response.send_message("❌ Seu carrinho está vazio.", ephemeral=True)
             return
 
-        staff_role = discord.utils.get(interaction.guild.roles, name=CARGO_STAFF)
+        guild = interaction.guild
+        staff_role = discord.utils.get(guild.roles, name=CARGO_STAFF)
         if not staff_role:
             await interaction.response.send_message("❌ Role de staff não encontrada.", ephemeral=True)
             return
 
-        for member in interaction.guild.members:
+        cliente = await bot.fetch_user(cliente_id)
+        staff_enviado = False
+        for member in guild.members:
             if staff_role in member.roles:
                 try:
                     embed_staff = discord.Embed(
@@ -186,10 +181,14 @@ async def on_interaction(interaction: discord.Interaction):
                         color=discord.Color.blurple()
                     )
                     await member.send(embed=embed_staff, view=StaffView(cliente_id))
+                    staff_enviado = True
                 except:
                     pass
 
-        await interaction.response.send_message("👮 Staff foi chamada! Aguarde a liberação da conta.", ephemeral=True)
+        if staff_enviado:
+            await interaction.response.send_message("👮 Staff foi chamada! Aguarde a liberação da conta.", ephemeral=True)
+        else:
+            await interaction.response.send_message("❌ Nenhum staff disponível para receber o pedido.", ephemeral=True)
 
     # ----------------- LIBERAR CONTA (STAFF) -----------------
     elif interaction.data["custom_id"].startswith("liberar_conta_"):
