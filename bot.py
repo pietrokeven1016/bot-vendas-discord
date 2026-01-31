@@ -70,10 +70,10 @@ async def on_interaction(interaction: discord.Interaction):
         return
 
     user_id = interaction.user.id
+    guild = interaction.guild
 
     # ----------------- ABRIR TICKET -----------------
     if interaction.data["custom_id"] == "abrir_ticket":
-        guild = interaction.guild
         user = interaction.user
         categoria = discord.utils.get(guild.categories, name=CATEGORIA_TICKET)
         if categoria is None:
@@ -160,50 +160,34 @@ async def on_interaction(interaction: discord.Interaction):
     # ----------------- CHAMAR STAFF -----------------
     elif interaction.data["custom_id"].startswith("chamar_staff_"):
         cliente_id = int(interaction.data["custom_id"].split("_")[-1])
-        carrinho = CARRINHOS.get(cliente_id, [])
-        if not carrinho:
-            await interaction.response.send_message("❌ Seu carrinho está vazio.", ephemeral=True)
-            return
+        cliente = await bot.fetch_user(cliente_id)
 
-        guild = interaction.guild
         staff_role = guild.get_role(STAFF_ROLE_ID)
         if not staff_role:
             await interaction.response.send_message("❌ Cargo de staff não encontrado.", ephemeral=True)
             return
 
-        cliente = await bot.fetch_user(cliente_id)
         staff_enviado = False
-        falha_dm = False
-
         for member in guild.members:
             if staff_role in member.roles:
                 try:
                     embed_staff = discord.Embed(
-                        title="🛒 Pedido do Cliente",
-                        description=f"Cliente: {cliente.mention}\nItens:\n" +
-                                    "\n".join([f"{i['nome']} → R${i['valor']}" for i in carrinho]),
+                        title="💰 Pagamento Recebido",
+                        description=f"O cliente {cliente.mention} realizou o pagamento!",
                         color=discord.Color.blurple()
                     )
                     await member.send(embed=embed_staff, view=StaffView(cliente_id))
                     staff_enviado = True
                 except:
-                    falha_dm = True
+                    continue
 
         if staff_enviado:
-            msg = "👮 Staff foi chamada! Aguarde a liberação da conta."
-            if falha_dm:
-                msg += "\n⚠️ Alguns staffs não puderam receber a DM, então a notificação também aparecerá no canal do ticket."
-                canal_ticket = interaction.channel
-                if canal_ticket:
-                    await canal_ticket.send(f"⚠️ Staff, o cliente {cliente.mention} realizou o pagamento! "
-                                            f"Verifique os itens e use o botão de liberação.")
-            await interaction.response.send_message(msg, ephemeral=True)
+            await interaction.response.send_message("👮 Staff foi chamada! Aguarde a liberação da conta.", ephemeral=True)
         else:
             canal_ticket = interaction.channel
             if canal_ticket:
-                await canal_ticket.send(f"❌ Nenhum staff conseguiu receber a DM, mas o cliente {cliente.mention} realizou o pagamento! "
-                                        "Algum staff, por favor, libere a conta usando o botão correspondente.")
-            await interaction.response.send_message("❌ Nenhum staff conseguiu receber a DM. A notificação foi enviada no canal do ticket.", ephemeral=True)
+                await canal_ticket.send(f"❌ Nenhum staff disponível recebeu a DM. Cliente {cliente.mention} realizou o pagamento! Algum staff, por favor, libere a conta usando o botão.")
+            await interaction.response.send_message("❌ Nenhum staff conseguiu receber a DM.", ephemeral=True)
 
     # ----------------- LIBERAR CONTA (STAFF) -----------------
     elif interaction.data["custom_id"].startswith("liberar_conta_"):
