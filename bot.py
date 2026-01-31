@@ -44,24 +44,24 @@ class TicketCompletoView(ui.View):
         self.add_item(ui.Select(placeholder="Selecione a opção de conta desejada", options=options, custom_id="selecionar_conta"))
 
 class CarrinhoView(ui.View):
-    def __init__(self):
+    def __init__(self, cliente_id):
         super().__init__(timeout=None)
-        self.add_item(ui.Button(label="🗑 Cancelar", style=discord.ButtonStyle.red, custom_id="carrinho_cancelar"))
-        self.add_item(ui.Button(label="💳 Ir para Pagamento", style=discord.ButtonStyle.green, custom_id="carrinho_pagamento"))
+        self.cliente_id = cliente_id
+        self.add_item(ui.Button(label="🗑 Cancelar", style=discord.ButtonStyle.red, custom_id=f"carrinho_cancelar_{cliente_id}"))
+        self.add_item(ui.Button(label="💳 Ir para Pagamento", style=discord.ButtonStyle.green, custom_id=f"carrinho_pagamento_{cliente_id}"))
 
 class PagamentoView(ui.View):
-    def __init__(self):
+    def __init__(self, cliente_id):
         super().__init__(timeout=None)
-        self.add_item(ui.Button(label="🪙 Gerar QR Code", style=discord.ButtonStyle.green, custom_id="gerar_qr"))
-        self.add_item(ui.Button(label="✅ Confirmar Pagamento (Staff)", style=discord.ButtonStyle.blurple, custom_id="confirmar_pagamento"))
+        self.cliente_id = cliente_id
+        self.add_item(ui.Button(label="🪙 Gerar QR Code", style=discord.ButtonStyle.green, custom_id=f"gerar_qr_{cliente_id}"))
+        self.add_item(ui.Button(label="✅ Confirmar Pagamento (Staff)", style=discord.ButtonStyle.blurple, custom_id=f"confirmar_pagamento_{cliente_id}"))
 
 # ================= EVENTO DE INTERAÇÃO =================
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
     if interaction.type != discord.InteractionType.component:
         return
-
-    user_id = interaction.user.id
 
     # ----------------- ABRIR TICKET -----------------
     if interaction.data["custom_id"] == "abrir_ticket":
@@ -100,6 +100,7 @@ async def on_interaction(interaction: discord.Interaction):
 
     # ----------------- SELECT MENU -----------------
     elif interaction.data["custom_id"] == "selecionar_conta":
+        cliente_id = interaction.user.id
         escolha = interaction.data["values"][0]
         conta = DADOS_CONTAS.get(escolha)
         if conta is None:
@@ -109,16 +110,16 @@ async def on_interaction(interaction: discord.Interaction):
             await interaction.response.send_message("❌ Esta opção está sem estoque no momento.", ephemeral=True)
             return
 
-        if user_id not in CARRINHOS:
-            CARRINHOS[user_id] = []
-        CARRINHOS[user_id].append(conta)
+        if cliente_id not in CARRINHOS:
+            CARRINHOS[cliente_id] = []
+        CARRINHOS[cliente_id].append(conta)
 
         embed = discord.Embed(
             title=f"{conta['nome']} adicionado ao carrinho!",
             description=f"💰 Valor: R${conta['valor']}",
             color=discord.Color.green()
         )
-        await interaction.response.send_message(embed=embed, view=CarrinhoView(), ephemeral=True)
+        await interaction.response.send_message(embed=embed, view=CarrinhoView(cliente_id), ephemeral=True)
 
         # ---------------- NOTIFICAR STAFF ----------------
         staff_channel = discord.utils.get(interaction.guild.text_channels, name="staff-pedidos")
@@ -128,22 +129,24 @@ async def on_interaction(interaction: discord.Interaction):
                 description=f"Cliente: {interaction.user.mention}\nItem: {conta['nome']}\nValor: R${conta['valor']}",
                 color=discord.Color.blurple()
             )
-            await staff_channel.send(embed=embed_staff, view=PagamentoView())
+            await staff_channel.send(embed=embed_staff, view=PagamentoView(cliente_id))
 
     # ----------------- CANCELAR ITEM -----------------
-    elif interaction.data["custom_id"] == "carrinho_cancelar":
-        carrinho = CARRINHOS.get(user_id, [])
+    elif interaction.data["custom_id"].startswith("carrinho_cancelar_"):
+        cliente_id = int(interaction.data["custom_id"].split("_")[-1])
+        carrinho = CARRINHOS.get(cliente_id, [])
         if not carrinho:
-            await interaction.response.send_message("❌ Seu carrinho já está vazio.", ephemeral=True)
+            await interaction.response.send_message("❌ Carrinho já está vazio.", ephemeral=True)
             return
         item_removido = carrinho.pop()
-        await interaction.response.send_message(f"🗑 {item_removido['nome']} foi removido do seu carrinho.", ephemeral=True)
+        await interaction.response.send_message(f"🗑 {item_removido['nome']} removido do carrinho.", ephemeral=True)
 
     # ----------------- IR PARA PAGAMENTO -----------------
-    elif interaction.data["custom_id"] == "carrinho_pagamento":
-        carrinho = CARRINHOS.get(user_id, [])
+    elif interaction.data["custom_id"].startswith("carrinho_pagamento_"):
+        cliente_id = int(interaction.data["custom_id"].split("_")[-1])
+        carrinho = CARRINHOS.get(cliente_id, [])
         if not carrinho:
-            await interaction.response.send_message("❌ Seu carrinho está vazio.", ephemeral=True)
+            await interaction.response.send_message("❌ Carrinho vazio.", ephemeral=True)
             return
         total = sum(float(item['valor']) for item in carrinho)
         embed = discord.Embed(
@@ -151,19 +154,17 @@ async def on_interaction(interaction: discord.Interaction):
             description=f"Total: **R${total:.2f}**\nClique em Gerar QR Code para Pix ou peça a confirmação à staff.",
             color=discord.Color.green()
         )
-        await interaction.response.send_message(embed=embed, view=PagamentoView(), ephemeral=True)
+        await interaction.response.send_message(embed=embed, view=PagamentoView(cliente_id), ephemeral=True)
 
     # ----------------- GERAR QR PIX -----------------
-    elif interaction.data["custom_id"] == "gerar_qr":
-        carrinho = CARRINHOS.get(user_id, [])
+    elif interaction.data["custom_id"].startswith("gerar_qr_"):
+        cliente_id = int(interaction.data["custom_id"].split("_")[-1])
+        carrinho = CARRINHOS.get(cliente_id, [])
         if not carrinho:
             await interaction.response.send_message("❌ Carrinho vazio.", ephemeral=True)
             return
 
-        # Pega o último item do carrinho
         ultimo_item = carrinho[-1]
-
-        # Escolhe QR dependendo do item
         qr_file = ""
         if ultimo_item['nome'] == "1 MÍTICA RANDOM":
             qr_file = "pix_1.png"
@@ -181,20 +182,22 @@ async def on_interaction(interaction: discord.Interaction):
         )
 
     # ----------------- CONFIRMAR PAGAMENTO (STAFF) -----------------
-    elif interaction.data["custom_id"] == "confirmar_pagamento":
+    elif interaction.data["custom_id"].startswith("confirmar_pagamento_"):
         staff_role = discord.utils.get(interaction.guild.roles, name=CARGO_STAFF)
         if staff_role not in interaction.user.roles:
             await interaction.response.send_message("❌ Apenas a staff pode confirmar o pagamento.", ephemeral=True)
             return
-        carrinho = CARRINHOS.get(user_id, [])
+
+        cliente_id = int(interaction.data["custom_id"].split("_")[-1])
+        carrinho = CARRINHOS.get(cliente_id, [])
         if not carrinho:
-            await interaction.response.send_message("❌ Carrinho vazio.", ephemeral=True)
+            await interaction.response.send_message("❌ Carrinho vazio do cliente.", ephemeral=True)
             return
 
-        mensagem = "✅ Pagamento confirmado! Aqui estão seus logins:\n"
+        mensagem = "✅ Pagamento confirmado! Aqui estão os logins:\n"
         for item in carrinho:
             mensagem += f"**{item['nome']}** → Login: `{item['login']}`, Senha: `{item['senha']}`\n"
-        CARRINHOS[user_id] = []
+        CARRINHOS[cliente_id] = []
 
         await interaction.response.send_message(mensagem, ephemeral=True)
 
