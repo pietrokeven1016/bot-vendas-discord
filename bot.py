@@ -48,13 +48,19 @@ class CarrinhoView(ui.View):
         super().__init__(timeout=None)
         self.cliente_id = cliente_id
         self.add_item(ui.Button(label="🗑 Cancelar", style=discord.ButtonStyle.red, custom_id=f"carrinho_cancelar_{cliente_id}"))
-        self.add_item(ui.Button(label="💳 Chamar Staff", style=discord.ButtonStyle.green, custom_id=f"chamar_staff_{cliente_id}"))
+        self.add_item(ui.Button(label="💳 Ir para Pagamento", style=discord.ButtonStyle.green, custom_id=f"carrinho_pagamento_{cliente_id}"))
+
+class ChamarStaffView(ui.View):
+    def __init__(self, cliente_id):
+        super().__init__(timeout=None)
+        self.cliente_id = cliente_id
+        self.add_item(ui.Button(label="👮 Chamar Staff", style=discord.ButtonStyle.blurple, custom_id=f"chamar_staff_{cliente_id}"))
 
 class StaffView(ui.View):
     def __init__(self, cliente_id):
         super().__init__(timeout=None)
         self.cliente_id = cliente_id
-        self.add_item(ui.Button(label="✅ Liberar Conta", style=discord.ButtonStyle.blurple, custom_id=f"liberar_conta_{cliente_id}"))
+        self.add_item(ui.Button(label="✅ Liberar Conta", style=discord.ButtonStyle.green, custom_id=f"liberar_conta_{cliente_id}"))
 
 # ================= EVENTO DE INTERAÇÃO =================
 @bot.event
@@ -131,6 +137,32 @@ async def on_interaction(interaction: discord.Interaction):
         item_removido = carrinho.pop()
         await interaction.response.send_message(f"🗑 {item_removido['nome']} removido do carrinho.", ephemeral=True)
 
+    # ----------------- IR PARA PAGAMENTO -----------------
+    elif interaction.data["custom_id"].startswith("carrinho_pagamento_"):
+        cliente_id = int(interaction.data["custom_id"].split("_")[-1])
+        carrinho = CARRINHOS.get(cliente_id, [])
+        if not carrinho:
+            await interaction.response.send_message("❌ Carrinho vazio.", ephemeral=True)
+            return
+
+        ultimo_item = carrinho[-1]
+        qr_file = ""
+        if ultimo_item['nome'] == "1 MÍTICA RANDOM":
+            qr_file = "pix_1.png"
+        elif ultimo_item['nome'] == "2 MÍTICAS RANDOM":
+            qr_file = "pix_2.png"
+        elif ultimo_item['nome'] == "3 MÍTICAS RANDOM":
+            qr_file = "pix_3.png"
+        elif ultimo_item['nome'] == "4 MÍTICAS RANDOM":
+            qr_file = "pix_4.png"
+
+        embed = discord.Embed(
+            title="💳 Pagamento",
+            description=f"Escaneie o QR Code abaixo para pagar **{ultimo_item['nome']}**:",
+            color=discord.Color.green()
+        )
+        await interaction.response.send_message(embed=embed, file=discord.File(qr_file), view=ChamarStaffView(cliente_id), ephemeral=True)
+
     # ----------------- CHAMAR STAFF -----------------
     elif interaction.data["custom_id"].startswith("chamar_staff_"):
         cliente_id = int(interaction.data["custom_id"].split("_")[-1])
@@ -145,7 +177,6 @@ async def on_interaction(interaction: discord.Interaction):
             await interaction.response.send_message("❌ Role de staff não encontrada.", ephemeral=True)
             return
 
-        # envia DM para cada staff
         for member in interaction.guild.members:
             if staff_role in member.roles:
                 try:
@@ -158,7 +189,7 @@ async def on_interaction(interaction: discord.Interaction):
                 except:
                     pass
 
-        await interaction.response.send_message("👮 Staff foi chamada! Aguarde a confirmação.", ephemeral=True)
+        await interaction.response.send_message("👮 Staff foi chamada! Aguarde a liberação da conta.", ephemeral=True)
 
     # ----------------- LIBERAR CONTA (STAFF) -----------------
     elif interaction.data["custom_id"].startswith("liberar_conta_"):
