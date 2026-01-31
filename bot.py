@@ -110,17 +110,17 @@ async def on_interaction(interaction: discord.Interaction):
             await interaction.response.send_message("❌ Essa conta está sem estoque.", ephemeral=True)
             return
 
-# Pega o arquivo local
-arquivo = discord.File(conta["icone"], filename=os.path.basename(conta["icone"]))
+        # Arquivo local
+        arquivo = discord.File(conta["icone"], filename=os.path.basename(conta["icone"]))
 
-# Cria embed apontando para o attachment
-embed = discord.Embed(title=conta["nome"], color=discord.Color.green())
-embed.add_field(name="💰 Valor", value=conta["valor"], inline=True)
-embed.add_field(name="📦 Estoque", value=str(conta["estoque"]), inline=True)
-embed.set_thumbnail(url=f"attachment://{os.path.basename(conta['icone'])}")
+        # Embed
+        embed = discord.Embed(title=conta["nome"], color=discord.Color.green())
+        embed.add_field(name="💰 Valor", value=conta["valor"], inline=True)
+        embed.add_field(name="📦 Estoque", value=str(conta["estoque"]), inline=True)
+        embed.set_thumbnail(url=f"attachment://{os.path.basename(conta['icone'])}")
 
-# Envia a resposta da interação com arquivo e embed juntos
-await interaction.response.send_message(embed=embed, file=arquivo, ephemeral=True)
+        # Envia embed + arquivo
+        await interaction.response.send_message(embed=embed, file=arquivo, ephemeral=True)
 
 # ================= COMANDOS =================
 @bot.command()
@@ -137,4 +137,3 @@ async def teste(ctx):
     await ctx.send("✅ Bot funcionando!")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
-
