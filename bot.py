@@ -94,9 +94,9 @@ async def on_interaction(interaction: discord.Interaction):
 
         # Dados de cada opção
         dados_contas = {
-            "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "R$2.89", "estoque": 114, "icone": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"},
-            "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "R$5.00", "estoque": 50, "icone": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"},
-            "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "R$7.00", "estoque": 30, "icone": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"},
+            "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "R$2.40", "estoque": 1, "icone": "https://static.beebom.com/wp-content/uploads/2025/01/Dragon-Fruit.jpg?w=1024"},
+            "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "R$3.60", "estoque": 0, "icone": "https://static.beebom.com/wp-content/uploads/2025/01/Dragon-Fruit.jpg?w=1024"},
+            "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "R$5.00", "estoque": 0, "icone": "https://static.beebom.com/wp-content/uploads/2025/01/Dragon-Fruit.jpg?w=1024"},
         }
 
         conta = dados_contas[escolha]
@@ -123,3 +123,4 @@ async def teste(ctx):
     await ctx.send("✅ Bot funcionando!")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
+
