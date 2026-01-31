@@ -3,8 +3,6 @@ from discord.ext import commands
 from discord import ui
 import os
 from dotenv import load_dotenv
-import qrcode
-from io import BytesIO
 
 load_dotenv()
 
@@ -18,27 +16,14 @@ CATEGORIA_TICKET = "Tickets"
 
 # ================= DADOS DAS CONTAS =================
 DADOS_CONTAS = {
-    "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "2.40", "estoque": 1, "login": "usuario1", "senha": "senha123"},
-    "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "3.60", "estoque": 0, "login": "usuario2", "senha": "senhaabc"},
-    "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "5.00", "estoque": 0, "login": "usuario3", "senha": "senhaxyz"},
-    "4_miticas": {"nome": "4 MÍTICAS RANDOM", "valor": "7.00", "estoque": 0, "login": "usuario4", "senha": "senha987"}
+    "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "2.40", "estoque": 5, "login": "usuario1", "senha": "senha123"},
+    "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "3.60", "estoque": 3, "login": "usuario2", "senha": "senhaabc"},
+    "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "5.00", "estoque": 2, "login": "usuario3", "senha": "senhaxyz"},
+    "4_miticas": {"nome": "4 MÍTICAS RANDOM", "valor": "7.00", "estoque": 1, "login": "usuario4", "senha": "senha987"}
 }
 
 # ================= CARRINHOS =================
 CARRINHOS = {}  # chave: user.id, valor: lista de itens
-
-# ================= FUNÇÃO PARA GERAR QR PIX =================
-def gerar_pix_qr(chave_pix: str, valor: float, descricao="Pagamento de conta"):
-    """
-    Gera um QR Pix dinâmico em PNG
-    """
-    # BR Code simplificado
-    pix_string = f"00020126580014BR.GOV.BCB.PIX0136{chave_pix}520400005303986540{valor:.2f}5802BR5913Compra6009Cidade62070503***6304"
-    img = qrcode.make(pix_string)
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    buffer.seek(0)
-    return buffer
 
 # ================= VIEWS =================
 class TicketView(ui.View):
@@ -164,12 +149,24 @@ async def on_interaction(interaction: discord.Interaction):
         if not carrinho:
             await interaction.response.send_message("❌ Carrinho vazio.", ephemeral=True)
             return
-        total = sum(float(item['valor']) for item in carrinho)
-        chave_pix = os.getenv("PIX_CHAVE")  # <-- colocar a chave Pix no .env
-        qr_img = gerar_pix_qr(chave_pix, total)
+
+        # Pega o último item do carrinho
+        ultimo_item = carrinho[-1]
+
+        # Escolhe QR dependendo do item
+        qr_file = ""
+        if ultimo_item['nome'] == "1 MÍTICA RANDOM":
+            qr_file = "pix_1.png"
+        elif ultimo_item['nome'] == "2 MÍTICAS RANDOM":
+            qr_file = "pix_2.png"
+        elif ultimo_item['nome'] == "3 MÍTICAS RANDOM":
+            qr_file = "pix_3.png"
+        elif ultimo_item['nome'] == "4 MÍTICAS RANDOM":
+            qr_file = "pix_4.png"
+
         await interaction.response.send_message(
-            "📷 Aqui está seu QR Pix. Escaneie no app do banco para pagar:",
-            file=discord.File(fp=qr_img, filename="pix.png"),
+            f"📷 Escaneie o QR Pix para pagar **{ultimo_item['nome']}**:",
+            file=discord.File(qr_file),
             ephemeral=True
         )
 
@@ -206,4 +203,3 @@ async def teste(ctx):
     await ctx.send("✅ Bot funcionando!")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
-
