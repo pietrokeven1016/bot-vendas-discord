@@ -18,14 +18,19 @@ CATEGORIA_TICKET = "Tickets"
 class TicketView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-        self.add_item(ui.Button(label="🛒 Abrir Ticket", style=discord.ButtonStyle.green, custom_id="abrir_ticket"))
+        self.add_item(
+            ui.Button(label="🛒 Abrir Ticket", style=discord.ButtonStyle.green, custom_id="abrir_ticket")
+        )
 
 # ================= TICKET COMPLETO (FECHAR + SELECT MENU) =================
 class TicketCompletoView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
+
         # Botão de fechar
-        self.add_item(ui.Button(label="🔒 Fechar Ticket", style=discord.ButtonStyle.red, custom_id="fechar_ticket"))
+        self.add_item(
+            ui.Button(label="🔒 Fechar Ticket", style=discord.ButtonStyle.red, custom_id="fechar_ticket")
+        )
 
         # Select Menu
         options = [
@@ -33,7 +38,41 @@ class TicketCompletoView(ui.View):
             discord.SelectOption(label="2 MÍTICAS RANDOM", value="2_miticas"),
             discord.SelectOption(label="3 MÍTICAS RANDOM", value="3_miticas"),
         ]
-        self.add_item(ui.Select(placeholder="Selecione a opção de conta desejada", options=options, custom_id="selecionar_conta"))
+        self.add_item(
+            ui.Select(
+                placeholder="Selecione a opção de conta desejada",
+                options=options,
+                custom_id="selecionar_conta"
+            )
+        )
+
+# ================= DADOS DAS CONTAS =================
+DADOS_CONTAS = {
+    "1_mitica": {
+        "nome": "1 MÍTICA RANDOM",
+        "valor": "R$2.40",
+        "estoque": 1,
+        "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"
+    },
+    "2_miticas": {
+        "nome": "2 MÍTICAS RANDOM",
+        "valor": "R$3.60",
+        "estoque": 0,
+        "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"
+    },
+    "3_miticas": {
+        "nome": "3 MÍTICAS RANDOM",
+        "valor": "R$5.00",
+        "estoque": 0,
+        "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"
+    },
+    "4_miticas": {
+        "nome": "4 MÍTICAS RANDOM",
+        "valor": "R$7.00",
+        "estoque": 0,
+        "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"
+    },
+}
 
 # ================= EVENTO DE INTERAÇÃO =================
 @bot.event
@@ -46,26 +85,31 @@ async def on_interaction(interaction: discord.Interaction):
         guild = interaction.guild
         user = interaction.user
 
+        # Checar ou criar categoria
         categoria = discord.utils.get(guild.categories, name=CATEGORIA_TICKET)
         if categoria is None:
             categoria = await guild.create_category(CATEGORIA_TICKET)
 
+        # Checar se já existe ticket
         for canal in categoria.channels:
             if canal.name == f"ticket-{user.id}":
-                await interaction.response.send_message("❌ Você já tem um ticket aberto.", ephemeral=True)
+                await interaction.response.send_message(
+                    "❌ Você já tem um ticket aberto.", ephemeral=True
+                )
                 return
 
         staff_role = discord.utils.get(guild.roles, name=CARGO_STAFF)
 
+        # Permissões do canal
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
             guild.me: discord.PermissionOverwrite(view_channel=True),
         }
-
         if staff_role:
             overwrites[staff_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
 
+        # Criar canal
         canal = await guild.create_text_channel(
             name=f"ticket-{user.id}",
             category=categoria,
@@ -83,7 +127,9 @@ async def on_interaction(interaction: discord.Interaction):
     elif interaction.data["custom_id"] == "fechar_ticket":
         staff_role = discord.utils.get(interaction.guild.roles, name=CARGO_STAFF)
         if staff_role not in interaction.user.roles:
-            await interaction.response.send_message("❌ Apenas a **staff** pode fechar o ticket.", ephemeral=True)
+            await interaction.response.send_message(
+                "❌ Apenas a **staff** pode fechar o ticket.", ephemeral=True
+            )
             return
         await interaction.response.send_message("🔒 Ticket será fechado...", ephemeral=True)
         await interaction.channel.delete()
@@ -91,16 +137,20 @@ async def on_interaction(interaction: discord.Interaction):
     # ----------------- SELECT MENU -----------------
     elif interaction.data["custom_id"] == "selecionar_conta":
         escolha = interaction.data["values"][0]
+        conta = DADOS_CONTAS.get(escolha)
 
-        # Dados de cada opção
-        dados_contas = {
-            "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "R$2.40", "estoque": 1, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
-            "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "R$3.60", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
-            "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "R$5.00", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
-            "4_miticas": {"nome": "4 MÍTICAS RANDOM", "valor": "R$7.00", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
-        }
+        if conta is None:
+            await interaction.response.send_message(
+                "❌ Opção inválida.", ephemeral=True
+            )
+            return
 
-        conta = dados_contas[escolha]
+        # Verifica estoque
+        if conta["estoque"] == 0:
+            await interaction.response.send_message(
+                "❌ Desculpe, esta opção está sem estoque no momento.", ephemeral=True
+            )
+            return
 
         embed = discord.Embed(title=conta["nome"], color=discord.Color.green())
         embed.add_field(name="💰 Valor", value=conta["valor"], inline=True)
