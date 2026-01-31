@@ -18,9 +18,10 @@ CATEGORIA_TICKET = "Tickets"
 
 # ================= DADOS DAS CONTAS =================
 DADOS_CONTAS = {
-    "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "2.40", "login": "user1", "senha": "1234"},
-    "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "3.60", "login": "user2", "senha": "abcd"},
-    "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "5.00", "login": "user3", "senha": "xyz"},
+    "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "2.40", "estoque": 5, "login": "usuario1", "senha": "senha123"},
+    "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "3.60", "estoque": 3, "login": "usuario2", "senha": "senhaabc"},
+    "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "5.00", "estoque": 2, "login": "usuario3", "senha": "senhaxyz"},
+    "4_miticas": {"nome": "4 MÍTICAS RANDOM", "valor": "7.00", "estoque": 1, "login": "usuario4", "senha": "senha987"}
 }
 
 # ================= CARRINHOS =================
@@ -53,6 +54,7 @@ class TicketCompletoView(ui.View):
             discord.SelectOption(label="1 MÍTICA RANDOM", value="1_mitica"),
             discord.SelectOption(label="2 MÍTICAS RANDOM", value="2_miticas"),
             discord.SelectOption(label="3 MÍTICAS RANDOM", value="3_miticas"),
+            discord.SelectOption(label="4 MÍTICAS RANDOM", value="4_miticas"),
         ]
         self.add_item(ui.Select(placeholder="Selecione a opção de conta desejada", options=options, custom_id="selecionar_conta"))
 
@@ -126,7 +128,11 @@ async def on_interaction(interaction: discord.Interaction):
             CARRINHOS[user_id] = []
         CARRINHOS[user_id].append(conta)
 
-        embed = discord.Embed(title=f"{conta['nome']} adicionado ao carrinho!", description=f"💰 Valor: R${conta['valor']}", color=discord.Color.green())
+        embed = discord.Embed(
+            title=f"{conta['nome']} adicionado ao carrinho!",
+            description=f"💰 Valor: R${conta['valor']}",
+            color=discord.Color.green()
+        )
         await interaction.response.send_message(embed=embed, view=CarrinhoView(), ephemeral=True)
 
     # ----------------- CANCELAR ITEM -----------------
@@ -145,7 +151,11 @@ async def on_interaction(interaction: discord.Interaction):
             await interaction.response.send_message("❌ Seu carrinho está vazio.", ephemeral=True)
             return
         total = sum(float(item['valor']) for item in carrinho)
-        embed = discord.Embed(title="💳 Pagamento", description=f"Total: **R${total:.2f}**\nClique em Gerar QR Code para Pix ou peça a confirmação à staff.", color=discord.Color.green())
+        embed = discord.Embed(
+            title="💳 Pagamento",
+            description=f"Total: **R${total:.2f}**\nClique em Gerar QR Code para Pix ou peça a confirmação à staff.",
+            color=discord.Color.green()
+        )
         await interaction.response.send_message(embed=embed, view=PagamentoView(), ephemeral=True)
 
     # ----------------- GERAR QR PIX -----------------
@@ -155,7 +165,7 @@ async def on_interaction(interaction: discord.Interaction):
             await interaction.response.send_message("❌ Carrinho vazio.", ephemeral=True)
             return
         total = sum(float(item['valor']) for item in carrinho)
-        chave_pix = "seu-email-ou-telefone"  # <-- Coloque aqui sua chave Pix Nubank
+        chave_pix = os.getenv("PIX_CHAVE")  # <-- colocar a chave Pix no .env
         qr_img = gerar_pix_qr(chave_pix, total)
         await interaction.response.send_message(
             "📷 Aqui está seu QR Pix. Escaneie no app do banco para pagar:",
@@ -184,7 +194,11 @@ async def on_interaction(interaction: discord.Interaction):
 # ================= COMANDOS =================
 @bot.command()
 async def painel(ctx):
-    embed = discord.Embed(title="🛒 Painel de Atendimento", description="Clique no botão abaixo para abrir um ticket.", color=discord.Color.green())
+    embed = discord.Embed(
+        title="🛒 Painel de Atendimento",
+        description="Clique no botão abaixo para abrir um ticket.",
+        color=discord.Color.green()
+    )
     await ctx.send(embed=embed, view=TicketView())
 
 @bot.command()
