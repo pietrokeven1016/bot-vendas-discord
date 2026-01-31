@@ -97,6 +97,7 @@ async def on_interaction(interaction: discord.Interaction):
             "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "R$2.40", "estoque": 1, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
             "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "R$3.60", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
             "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "R$5.00", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
+            "4_miticas": {"nome": "4 MÍTICAS RANDOM", "valor": "R$7.00", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
         }
 
         conta = dados_contas[escolha]
@@ -123,5 +124,6 @@ async def teste(ctx):
     await ctx.send("✅ Bot funcionando!")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
+
 
 
