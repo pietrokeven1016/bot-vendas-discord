@@ -18,14 +18,38 @@ CATEGORIA_TICKET = "Tickets"
 async def on_ready():
     print(f"Bot conectado como {bot.user}")
 
-# ================= BOTÕES E SELECT MENU =================
+# ================= BOTÕES + SELECT MENU =================
 
 class TicketView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
+        # Botão de abrir ticket
+        self.add_item(ui.Button(label="🛒 Abrir Ticket", style=discord.ButtonStyle.green, custom_id="abrir_ticket"))
 
-    @ui.button(label="🛒 Abrir Ticket", style=discord.ButtonStyle.green)
-    async def abrir_ticket(self, interaction: discord.Interaction, button: ui.Button):
+class TicketCompletoView(ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+        # Botão de fechar
+        self.add_item(ui.Button(label="🔒 Fechar Ticket", style=discord.ButtonStyle.red, custom_id="fechar_ticket"))
+
+        # Select Menu
+        options = [
+            discord.SelectOption(label="1 mítica aleatória", value="1_mitica"),
+            discord.SelectOption(label="2 míticas aleatórias", value="2_miticas"),
+            discord.SelectOption(label="3 míticas aleatórias", value="3_miticas"),
+        ]
+        self.add_item(ui.Select(placeholder="Selecione a opção de conta desejada", options=options, custom_id="selecionar_conta"))
+
+# ================= EVENTO DE INTERAÇÃO =================
+
+@bot.event
+async def on_interaction(interaction: discord.Interaction):
+    if interaction.type != discord.InteractionType.component:
+        return
+
+    # Abrir ticket
+    if interaction.data["custom_id"] == "abrir_ticket":
         guild = interaction.guild
         user = interaction.user
 
@@ -35,9 +59,7 @@ class TicketView(ui.View):
 
         for canal in categoria.channels:
             if canal.name == f"ticket-{user.id}":
-                await interaction.response.send_message(
-                    "❌ Você já tem um ticket aberto.", ephemeral=True
-                )
+                await interaction.response.send_message("❌ Você já tem um ticket aberto.", ephemeral=True)
                 return
 
         staff_role = discord.utils.get(guild.roles, name=CARGO_STAFF)
@@ -49,9 +71,7 @@ class TicketView(ui.View):
         }
 
         if staff_role:
-            overwrites[staff_role] = discord.PermissionOverwrite(
-                view_channel=True, send_messages=True
-            )
+            overwrites[staff_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
 
         canal = await guild.create_text_channel(
             name=f"ticket-{user.id}",
@@ -59,61 +79,28 @@ class TicketView(ui.View):
             overwrites=overwrites
         )
 
-        # Select Menu para escolher conta
-        class SelecionarContaView(ui.View):
-            def __init__(self):
-                super().__init__(timeout=None)
-                self.add_item(ui.StringSelect(
-                    placeholder="Selecione a opção de conta desejada",
-                    options=[
-                        discord.SelectOption(label="1 mítica aleatória", value="1_mitica"),
-                        discord.SelectOption(label="2 míticas aleatórias", value="2_miticas"),
-                        discord.SelectOption(label="3 míticas aleatórias", value="3_miticas")
-                    ],
-                    custom_id="selecionar_conta"
-                ))
-
-            @ui.select(custom_id="selecionar_conta")
-            async def select_callback(self, select_interaction: discord.Interaction, select):
-                escolha = select.values[0]
-                await select_interaction.response.send_message(
-                    f"✅ Você selecionou: **{escolha.replace('_', ' ')}**",
-                    ephemeral=True
-                )
-                # Aqui você pode chamar sua função para entregar a conta
-                # entregar_conta(select_interaction.user.id, escolha)
-
         await canal.send(
-            f"🎫 **Ticket aberto!**\n\n"
-            f"{user.mention}, descreva seu pedido ou selecione sua conta abaixo:",
-            view=FecharTicketView() + SelecionarContaView()
+            f"🎫 **Ticket aberto!**\n\n{user.mention}, descreva seu pedido ou selecione sua conta abaixo:",
+            view=TicketCompletoView()
         )
 
-        await interaction.response.send_message(
-            f"✅ Ticket criado: {canal.mention}", ephemeral=True
-        )
+        await interaction.response.send_message(f"✅ Ticket criado: {canal.mention}", ephemeral=True)
 
-class FecharTicketView(ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    @ui.button(label="🔒 Fechar Ticket", style=discord.ButtonStyle.red)
-    async def fechar_ticket(self, interaction: discord.Interaction, button: ui.Button):
+    # Fechar ticket
+    elif interaction.data["custom_id"] == "fechar_ticket":
         staff_role = discord.utils.get(interaction.guild.roles, name=CARGO_STAFF)
-
         if staff_role not in interaction.user.roles:
-            await interaction.response.send_message(
-                "❌ Apenas a **staff** pode fechar o ticket.",
-                ephemeral=True
-            )
+            await interaction.response.send_message("❌ Apenas a **staff** pode fechar o ticket.", ephemeral=True)
             return
-
-        await interaction.response.send_message(
-            "🔒 Ticket será fechado em 3 segundos...",
-            ephemeral=True
-        )
-
+        await interaction.response.send_message("🔒 Ticket será fechado...", ephemeral=True)
         await interaction.channel.delete()
+
+    # Select Menu
+    elif interaction.data["custom_id"] == "selecionar_conta":
+        escolha = interaction.data["values"][0]
+        await interaction.response.send_message(f"✅ Você selecionou: **{escolha.replace('_', ' ')}**", ephemeral=True)
+        # Aqui você pode chamar sua função para entregar a conta
+        # entregar_conta(interaction.user.id, escolha)
 
 # ================= COMANDOS =================
 
