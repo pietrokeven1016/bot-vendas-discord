@@ -18,10 +18,10 @@ CATEGORIA_TICKET = "Tickets"
 
 # ================= DADOS DAS CONTAS =================
 DADOS_CONTAS = {
-    "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "2.40", "estoque": 5, "login": "usuario1", "senha": "senha123"},
-    "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "3.60", "estoque": 3, "login": "usuario2", "senha": "senhaabc"},
-    "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "5.00", "estoque": 2, "login": "usuario3", "senha": "senhaxyz"},
-    "4_miticas": {"nome": "4 MÍTICAS RANDOM", "valor": "7.00", "estoque": 1, "login": "usuario4", "senha": "senha987"}
+    "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "2.40", "estoque": 1, "login": "usuario1", "senha": "senha123"},
+    "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "3.60", "estoque": 0, "login": "usuario2", "senha": "senhaabc"},
+    "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "5.00", "estoque": 0, "login": "usuario3", "senha": "senhaxyz"},
+    "4_miticas": {"nome": "4 MÍTICAS RANDOM", "valor": "7.00", "estoque": 0, "login": "usuario4", "senha": "senha987"}
 }
 
 # ================= CARRINHOS =================
@@ -206,3 +206,4 @@ async def teste(ctx):
     await ctx.send("✅ Bot funcionando!")
 
 bot.run(os.getenv("DISCORD_TOKEN"))
+
