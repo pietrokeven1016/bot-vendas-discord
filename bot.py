@@ -14,41 +14,34 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 CARGO_STAFF = "Staff"
 CATEGORIA_TICKET = "Tickets"
 
-@bot.event
-async def on_ready():
-    print(f"Bot conectado como {bot.user}")
-
-# ================= BOTÕES + SELECT MENU =================
-
+# ================= BOTÃO PARA ABRIR TICKET =================
 class TicketView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-        # Botão de abrir ticket
         self.add_item(ui.Button(label="🛒 Abrir Ticket", style=discord.ButtonStyle.green, custom_id="abrir_ticket"))
 
+# ================= TICKET COMPLETO (FECHAR + SELECT MENU) =================
 class TicketCompletoView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-
         # Botão de fechar
         self.add_item(ui.Button(label="🔒 Fechar Ticket", style=discord.ButtonStyle.red, custom_id="fechar_ticket"))
 
         # Select Menu
         options = [
-            discord.SelectOption(label="1 mítica aleatória", value="1_mitica"),
-            discord.SelectOption(label="2 míticas aleatórias", value="2_miticas"),
-            discord.SelectOption(label="3 míticas aleatórias", value="3_miticas"),
+            discord.SelectOption(label="1 MÍTICA RANDOM", value="1_mitica"),
+            discord.SelectOption(label="2 MÍTICAS RANDOM", value="2_miticas"),
+            discord.SelectOption(label="3 MÍTICAS RANDOM", value="3_miticas"),
         ]
         self.add_item(ui.Select(placeholder="Selecione a opção de conta desejada", options=options, custom_id="selecionar_conta"))
 
 # ================= EVENTO DE INTERAÇÃO =================
-
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
     if interaction.type != discord.InteractionType.component:
         return
 
-    # Abrir ticket
+    # ----------------- ABRIR TICKET -----------------
     if interaction.data["custom_id"] == "abrir_ticket":
         guild = interaction.guild
         user = interaction.user
@@ -86,7 +79,7 @@ async def on_interaction(interaction: discord.Interaction):
 
         await interaction.response.send_message(f"✅ Ticket criado: {canal.mention}", ephemeral=True)
 
-    # Fechar ticket
+    # ----------------- FECHAR TICKET -----------------
     elif interaction.data["custom_id"] == "fechar_ticket":
         staff_role = discord.utils.get(interaction.guild.roles, name=CARGO_STAFF)
         if staff_role not in interaction.user.roles:
@@ -95,15 +88,27 @@ async def on_interaction(interaction: discord.Interaction):
         await interaction.response.send_message("🔒 Ticket será fechado...", ephemeral=True)
         await interaction.channel.delete()
 
-    # Select Menu
+    # ----------------- SELECT MENU -----------------
     elif interaction.data["custom_id"] == "selecionar_conta":
         escolha = interaction.data["values"][0]
-        await interaction.response.send_message(f"✅ Você selecionou: **{escolha.replace('_', ' ')}**", ephemeral=True)
-        # Aqui você pode chamar sua função para entregar a conta
-        # entregar_conta(interaction.user.id, escolha)
+
+        # Dados de cada opção
+        dados_contas = {
+            "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "R$2.89", "estoque": 114, "icone": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"},
+            "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "R$5.00", "estoque": 50, "icone": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"},
+            "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "R$7.00", "estoque": 30, "icone": "https://cdn-icons-png.flaticon.com/512/3135/3135715.png"},
+        }
+
+        conta = dados_contas[escolha]
+
+        embed = discord.Embed(title=conta["nome"], color=discord.Color.green())
+        embed.add_field(name="💰 Valor", value=conta["valor"], inline=True)
+        embed.add_field(name="📦 Estoque", value=str(conta["estoque"]), inline=True)
+        embed.set_thumbnail(url=conta["icone"])
+
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # ================= COMANDOS =================
-
 @bot.command()
 async def painel(ctx):
     embed = discord.Embed(
