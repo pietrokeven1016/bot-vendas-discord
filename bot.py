@@ -18,13 +18,26 @@ CATEGORIA_TICKET = "Tickets"
 
 # ================= DADOS DAS CONTAS =================
 DADOS_CONTAS = {
-    "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "2.40", "estoque": 1, "login": "user1", "senha": "1234"},
+    "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "2.40", "login": "user1", "senha": "1234"},
     "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "3.60", "login": "user2", "senha": "abcd"},
     "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "5.00", "login": "user3", "senha": "xyz"},
 }
 
 # ================= CARRINHOS =================
 CARRINHOS = {}  # chave: user.id, valor: lista de itens
+
+# ================= FUNÇÃO PARA GERAR QR PIX =================
+def gerar_pix_qr(chave_pix: str, valor: float, descricao="Pagamento de conta"):
+    """
+    Gera um QR Pix dinâmico em PNG
+    """
+    # BR Code simplificado
+    pix_string = f"00020126580014BR.GOV.BCB.PIX0136{chave_pix}520400005303986540{valor:.2f}5802BR5913Compra6009Cidade62070503***6304"
+    img = qrcode.make(pix_string)
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    buffer.seek(0)
+    return buffer
 
 # ================= VIEWS =================
 class TicketView(ui.View):
@@ -36,7 +49,6 @@ class TicketCompletoView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(ui.Button(label="🔒 Fechar Ticket", style=discord.ButtonStyle.red, custom_id="fechar_ticket"))
-
         options = [
             discord.SelectOption(label="1 MÍTICA RANDOM", value="1_mitica"),
             discord.SelectOption(label="2 MÍTICAS RANDOM", value="2_miticas"),
@@ -56,15 +68,6 @@ class PagamentoView(ui.View):
         self.add_item(ui.Button(label="🪙 Gerar QR Code", style=discord.ButtonStyle.green, custom_id="gerar_qr"))
         self.add_item(ui.Button(label="✅ Confirmar Pagamento (Staff)", style=discord.ButtonStyle.blurple, custom_id="confirmar_pagamento"))
 
-# ================= FUNÇÃO PARA GERAR QR PIX =================
-def gerar_pix_qr(chave_pix: str, valor: float):
-    pix_string = f"00020126580014BR.GOV.BCB.PIX0136{chave_pix}520400005303986540{valor:.2f}5802BR5913Compra6009Cidade62070503***6304"
-    img = qrcode.make(pix_string)
-    buffer = BytesIO()
-    img.save(buffer, format="PNG")
-    buffer.seek(0)
-    return buffer
-
 # ================= EVENTO DE INTERAÇÃO =================
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
@@ -77,7 +80,6 @@ async def on_interaction(interaction: discord.Interaction):
     if interaction.data["custom_id"] == "abrir_ticket":
         guild = interaction.guild
         user = interaction.user
-
         categoria = discord.utils.get(guild.categories, name=CATEGORIA_TICKET)
         if categoria is None:
             categoria = await guild.create_category(CATEGORIA_TICKET)
@@ -127,20 +129,6 @@ async def on_interaction(interaction: discord.Interaction):
         embed = discord.Embed(title=f"{conta['nome']} adicionado ao carrinho!", description=f"💰 Valor: R${conta['valor']}", color=discord.Color.green())
         await interaction.response.send_message(embed=embed, view=CarrinhoView(), ephemeral=True)
 
-    # ----------------- VER CARRINHO -----------------
-    elif interaction.data["custom_id"] == "ver_carrinho":
-        carrinho = CARRINHOS.get(user_id, [])
-        if not carrinho:
-            await interaction.response.send_message("🛒 Seu carrinho está vazio.", ephemeral=True)
-            return
-        embed = discord.Embed(title="🛒 Seu Carrinho", color=discord.Color.blue())
-        total = 0
-        for i, item in enumerate(carrinho, 1):
-            embed.add_field(name=f"{i}. {item['nome']}", value=f"💰 R${item['valor']}", inline=False)
-            total += float(item['valor'])
-        embed.add_field(name="💵 Total", value=f"R${total:.2f}", inline=False)
-        await interaction.response.send_message(embed=embed, view=CarrinhoView(), ephemeral=True)
-
     # ----------------- CANCELAR ITEM -----------------
     elif interaction.data["custom_id"] == "carrinho_cancelar":
         carrinho = CARRINHOS.get(user_id, [])
@@ -160,16 +148,20 @@ async def on_interaction(interaction: discord.Interaction):
         embed = discord.Embed(title="💳 Pagamento", description=f"Total: **R${total:.2f}**\nClique em Gerar QR Code para Pix ou peça a confirmação à staff.", color=discord.Color.green())
         await interaction.response.send_message(embed=embed, view=PagamentoView(), ephemeral=True)
 
-    # ----------------- GERAR QR -----------------
+    # ----------------- GERAR QR PIX -----------------
     elif interaction.data["custom_id"] == "gerar_qr":
         carrinho = CARRINHOS.get(user_id, [])
         if not carrinho:
             await interaction.response.send_message("❌ Carrinho vazio.", ephemeral=True)
             return
         total = sum(float(item['valor']) for item in carrinho)
-        chave_pix = "seu-email-ou-telefone"  # coloque sua chave Pix aqui
+        chave_pix = "seu-email-ou-telefone"  # <-- Coloque aqui sua chave Pix Nubank
         qr_img = gerar_pix_qr(chave_pix, total)
-        await interaction.response.send_message("📷 Aqui está seu QR Pix:", file=discord.File(fp=qr_img, filename="pix.png"), ephemeral=True)
+        await interaction.response.send_message(
+            "📷 Aqui está seu QR Pix. Escaneie no app do banco para pagar:",
+            file=discord.File(fp=qr_img, filename="pix.png"),
+            ephemeral=True
+        )
 
     # ----------------- CONFIRMAR PAGAMENTO (STAFF) -----------------
     elif interaction.data["custom_id"] == "confirmar_pagamento":
@@ -182,12 +174,9 @@ async def on_interaction(interaction: discord.Interaction):
             await interaction.response.send_message("❌ Carrinho vazio.", ephemeral=True)
             return
 
-        # Envia login + senha de todas as contas compradas
         mensagem = "✅ Pagamento confirmado! Aqui estão seus logins:\n"
         for item in carrinho:
             mensagem += f"**{item['nome']}** → Login: `{item['login']}`, Senha: `{item['senha']}`\n"
-
-        # Limpa o carrinho após envio
         CARRINHOS[user_id] = []
 
         await interaction.response.send_message(mensagem, ephemeral=True)
