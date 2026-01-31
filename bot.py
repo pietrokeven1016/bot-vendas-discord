@@ -120,6 +120,16 @@ async def on_interaction(interaction: discord.Interaction):
         )
         await interaction.response.send_message(embed=embed, view=CarrinhoView(), ephemeral=True)
 
+        # ---------------- NOTIFICAR STAFF ----------------
+        staff_channel = discord.utils.get(interaction.guild.text_channels, name="staff-pedidos")
+        if staff_channel:
+            embed_staff = discord.Embed(
+                title="🛒 Novo pedido!",
+                description=f"Cliente: {interaction.user.mention}\nItem: {conta['nome']}\nValor: R${conta['valor']}",
+                color=discord.Color.blurple()
+            )
+            await staff_channel.send(embed=embed_staff, view=PagamentoView())
+
     # ----------------- CANCELAR ITEM -----------------
     elif interaction.data["custom_id"] == "carrinho_cancelar":
         carrinho = CARRINHOS.get(user_id, [])
