@@ -16,38 +16,20 @@ CATEGORIA_TICKET = "Tickets"
 
 # ================= DADOS DAS CONTAS =================
 DADOS_CONTAS = {
-    "1_mitica": {
-        "nome": "1 MÍTICA RANDOM",
-        "valor": "2.40",
-        "estoque": 1,
-        "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"
-    },
-    "2_miticas": {
-        "nome": "2 MÍTICAS RANDOM",
-        "valor": "3.60",
-        "estoque": 0,
-        "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"
-    },
-    "3_miticas": {
-        "nome": "3 MÍTICAS RANDOM",
-        "valor": "5.00",
-        "estoque": 0,
-        "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"
-    },
+    "1_mitica": {"nome": "1 MÍTICA RANDOM", "valor": "2.40", "estoque": 1, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
+    "2_miticas": {"nome": "2 MÍTICAS RANDOM", "valor": "3.60", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-177094051735169387.jpg"},
+    "3_miticas": {"nome": "3 MÍTICAS RANDOM", "valor": "5.00", "estoque": 0, "icone": "https://tiermaker.com/images/media/hero_images/2024/17709405/blox-fruits-tier-list--dragon-rework-holiday-update-17709405/177094051735169387.jpg"},
 }
 
 # ================= CARRINHOS =================
 CARRINHOS = {}  # chave: user.id, valor: lista de itens
 
-# ================= BOTÃO PARA ABRIR TICKET =================
+# ================= VIEWS =================
 class TicketView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-        self.add_item(
-            ui.Button(label="🛒 Abrir Ticket", style=discord.ButtonStyle.green, custom_id="abrir_ticket")
-        )
+        self.add_item(ui.Button(label="🛒 Abrir Ticket", style=discord.ButtonStyle.green, custom_id="abrir_ticket"))
 
-# ================= TICKET COMPLETO (FECHAR + SELECT MENU) =================
 class TicketCompletoView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -60,17 +42,19 @@ class TicketCompletoView(ui.View):
         ]
         self.add_item(ui.Select(placeholder="Selecione a opção de conta desejada", options=options, custom_id="selecionar_conta"))
 
-# ================= VIEW DO CARRINHO =================
-class VerCarrinhoView(ui.View):
+class CarrinhoView(ui.View):
     def __init__(self):
         super().__init__(timeout=None)
-        self.add_item(ui.Button(label="🛒 Ver Carrinho", style=discord.ButtonStyle.blurple, custom_id="ver_carrinho"))
+        self.add_item(ui.Button(label="🗑 Cancelar", style=discord.ButtonStyle.red, custom_id="carrinho_cancelar"))
+        self.add_item(ui.Button(label="💳 Ir para Pagamento", style=discord.ButtonStyle.green, custom_id="carrinho_pagamento"))
 
 # ================= EVENTO DE INTERAÇÃO =================
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
     if interaction.type != discord.InteractionType.component:
         return
+
+    user_id = interaction.user.id
 
     # ----------------- ABRIR TICKET -----------------
     if interaction.data["custom_id"] == "abrir_ticket":
@@ -81,14 +65,13 @@ async def on_interaction(interaction: discord.Interaction):
         if categoria is None:
             categoria = await guild.create_category(CATEGORIA_TICKET)
 
-        # Checa se já existe ticket do mesmo usuário
+        # Checa se já existe ticket do usuário
         for canal in categoria.channels:
             if canal.name == f"ticket-{user.id}":
                 await interaction.response.send_message("❌ Você já tem um ticket aberto.", ephemeral=True)
                 return
 
         staff_role = discord.utils.get(guild.roles, name=CARGO_STAFF)
-
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
@@ -97,17 +80,8 @@ async def on_interaction(interaction: discord.Interaction):
         if staff_role:
             overwrites[staff_role] = discord.PermissionOverwrite(view_channel=True, send_messages=True)
 
-        canal = await guild.create_text_channel(
-            name=f"ticket-{user.id}",
-            category=categoria,
-            overwrites=overwrites
-        )
-
-        await canal.send(
-            f"🎫 **Ticket aberto!**\n\n{user.mention}, descreva seu pedido ou selecione sua conta abaixo:",
-            view=TicketCompletoView()
-        )
-
+        canal = await guild.create_text_channel(name=f"ticket-{user.id}", category=categoria, overwrites=overwrites)
+        await canal.send(f"🎫 **Ticket aberto!**\n\n{user.mention}, descreva seu pedido ou selecione sua conta abaixo:", view=TicketCompletoView())
         await interaction.response.send_message(f"✅ Ticket criado: {canal.mention}", ephemeral=True)
 
     # ----------------- FECHAR TICKET -----------------
@@ -127,31 +101,21 @@ async def on_interaction(interaction: discord.Interaction):
         if conta is None:
             await interaction.response.send_message("❌ Opção inválida.", ephemeral=True)
             return
-
         if conta["estoque"] == 0:
             await interaction.response.send_message("❌ Desculpe, esta opção está sem estoque no momento.", ephemeral=True)
             return
 
-        # Adiciona ao carrinho
-        user_id = interaction.user.id
         if user_id not in CARRINHOS:
             CARRINHOS[user_id] = []
         CARRINHOS[user_id].append(conta)
 
-        embed = discord.Embed(
-            title=f"{conta['nome']} adicionado ao carrinho!",
-            description=f"💰 Valor: R${conta['valor']}\n📦 Estoque: {conta['estoque']}",
-            color=discord.Color.green()
-        )
+        embed = discord.Embed(title=f"{conta['nome']} adicionado ao carrinho!", description=f"💰 Valor: R${conta['valor']}\n📦 Estoque: {conta['estoque']}", color=discord.Color.green())
         embed.set_thumbnail(url=conta["icone"])
-
-        await interaction.response.send_message(embed=embed, view=VerCarrinhoView(), ephemeral=True)
+        await interaction.response.send_message(embed=embed, view=CarrinhoView(), ephemeral=True)
 
     # ----------------- VER CARRINHO -----------------
     elif interaction.data["custom_id"] == "ver_carrinho":
-        user_id = interaction.user.id
         carrinho = CARRINHOS.get(user_id, [])
-
         if not carrinho:
             await interaction.response.send_message("🛒 Seu carrinho está vazio.", ephemeral=True)
             return
@@ -161,19 +125,35 @@ async def on_interaction(interaction: discord.Interaction):
         for i, item in enumerate(carrinho, 1):
             embed.add_field(name=f"{i}. {item['nome']}", value=f"💰 R${item['valor']}\n📦 Estoque: {item['estoque']}", inline=False)
             total += float(item['valor'])
-
         embed.add_field(name="💵 Total", value=f"R${total:.2f}", inline=False)
+        await interaction.response.send_message(embed=embed, view=CarrinhoView(), ephemeral=True)
 
+    # ----------------- CANCELAR ITEM -----------------
+    elif interaction.data["custom_id"] == "carrinho_cancelar":
+        carrinho = CARRINHOS.get(user_id, [])
+        if not carrinho:
+            await interaction.response.send_message("❌ Seu carrinho já está vazio.", ephemeral=True)
+            return
+
+        item_removido = carrinho.pop()
+        await interaction.response.send_message(f"🗑 {item_removido['nome']} foi removido do seu carrinho.", ephemeral=True)
+
+    # ----------------- IR PARA PAGAMENTO -----------------
+    elif interaction.data["custom_id"] == "carrinho_pagamento":
+        carrinho = CARRINHOS.get(user_id, [])
+        if not carrinho:
+            await interaction.response.send_message("❌ Seu carrinho está vazio.", ephemeral=True)
+            return
+
+        total = sum(float(item['valor']) for item in carrinho)
+        embed = discord.Embed(title="💳 Pagamento", color=discord.Color.green())
+        embed.description = f"Você está pronto para pagar o total de **R${total:.2f}**.\n\nEscolha o método de pagamento ou envie a confirmação de pagamento."
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
 # ================= COMANDOS =================
 @bot.command()
 async def painel(ctx):
-    embed = discord.Embed(
-        title="🛒 Painel de Atendimento",
-        description="Clique no botão abaixo para abrir um ticket.",
-        color=discord.Color.green()
-    )
+    embed = discord.Embed(title="🛒 Painel de Atendimento", description="Clique no botão abaixo para abrir um ticket.", color=discord.Color.green())
     await ctx.send(embed=embed, view=TicketView())
 
 @bot.command()
