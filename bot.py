@@ -51,18 +51,6 @@ class CarrinhoView(ui.View):
         self.add_item(ui.Button(label="🗑 Cancelar", style=discord.ButtonStyle.red, custom_id=f"carrinho_cancelar_{cliente_id}"))
         self.add_item(ui.Button(label="💳 Ir para Pagamento", style=discord.ButtonStyle.green, custom_id=f"carrinho_pagamento_{cliente_id}"))
 
-class ChamarStaffView(ui.View):
-    def __init__(self, cliente_id):
-        super().__init__(timeout=None)
-        self.cliente_id = cliente_id
-        self.add_item(ui.Button(label="👮 Chamar Staff", style=discord.ButtonStyle.blurple, custom_id=f"chamar_staff_{cliente_id}"))
-
-class StaffView(ui.View):
-    def __init__(self, cliente_id):
-        super().__init__(timeout=None)
-        self.cliente_id = cliente_id
-        self.add_item(ui.Button(label="✅ Liberar Conta", style=discord.ButtonStyle.green, custom_id=f"liberar_conta_{cliente_id}"))
-
 # ================= EVENTO DE INTERAÇÃO =================
 @bot.event
 async def on_interaction(interaction: discord.Interaction):
@@ -155,50 +143,34 @@ async def on_interaction(interaction: discord.Interaction):
             color=discord.Color.green()
         )
 
-        await interaction.response.send_message(embed=embed, file=discord.File(qr_file), view=ChamarStaffView(cliente_id), ephemeral=True)
+        # Aparece botão "Chamar Staff" após gerar QR
+        view = ui.View()
+        view.add_item(ui.Button(
+            label="👮 Chamar Staff",
+            style=discord.ButtonStyle.blurple,
+            custom_id=f"chamar_staff_{cliente_id}"
+        ))
+
+        await interaction.response.send_message(embed=embed, file=discord.File(qr_file), view=view, ephemeral=True)
 
     # ----------------- CHAMAR STAFF -----------------
     elif interaction.data["custom_id"].startswith("chamar_staff_"):
         cliente_id = int(interaction.data["custom_id"].split("_")[-1])
         cliente = await bot.fetch_user(cliente_id)
-        staff_role = guild.get_role(STAFF_ROLE_ID)
-        if not staff_role:
-            await interaction.response.send_message("❌ Cargo de staff não encontrado.", ephemeral=True)
-            return
 
-        staff_enviado = False
-        falha_dm = False
+        # Cria botão "Liberar Conta" para staff
+        view = ui.View()
+        view.add_item(ui.Button(
+            label="✅ Liberar Conta (Staff)",
+            style=discord.ButtonStyle.green,
+            custom_id=f"liberar_conta_{cliente_id}"
+        ))
 
-        # Tenta enviar DM para todos os membros com a role de staff
-        for member in guild.members:
-            if staff_role in member.roles:
-                try:
-                    embed_staff = discord.Embed(
-                        title="💰 Pagamento Recebido",
-                        description=f"O cliente {cliente.mention} realizou o pagamento!",
-                        color=discord.Color.blurple()
-                    )
-                    await member.send(embed=embed_staff, view=StaffView(cliente_id))
-                    staff_enviado = True
-                except:
-                    falha_dm = True
-
-        # Mensagem para o cliente
-        if staff_enviado:
-            msg = "👮 Staff foi chamada! Aguarde a liberação da conta."
-            if falha_dm and interaction.channel:
-                await interaction.channel.send(
-                    f"⚠️ Alguns staffs não puderam receber a DM. Cliente {cliente.mention} realizou o pagamento! "
-                    "Algum staff, por favor, libere a conta usando o botão."
-                )
-            await interaction.response.send_message(msg, ephemeral=True)
-        else:
-            if interaction.channel:
-                await interaction.channel.send(
-                    f"❌ Nenhum staff conseguiu receber a DM. Cliente {cliente.mention} realizou o pagamento! "
-                    "Algum staff, por favor, libere a conta usando o botão."
-                )
-            await interaction.response.send_message("❌ Nenhum staff conseguiu receber a DM.", ephemeral=True)
+        await interaction.response.send_message(
+            f"👮 {cliente.mention} chamou a staff! Apenas membros com a role de staff podem liberar a conta.",
+            view=view,
+            ephemeral=False
+        )
 
     # ----------------- LIBERAR CONTA (STAFF) -----------------
     elif interaction.data["custom_id"].startswith("liberar_conta_"):
