@@ -11,7 +11,8 @@ intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-CARGO_STAFF = "Staff"
+# ================= CONFIGURAÇÕES =================
+STAFF_ROLE_ID = 1466932057572643078  # ID real do cargo Staff
 CATEGORIA_TICKET = "Tickets"
 
 # ================= DADOS DAS CONTAS =================
@@ -83,7 +84,7 @@ async def on_interaction(interaction: discord.Interaction):
                 await interaction.response.send_message("❌ Você já tem um ticket aberto.", ephemeral=True)
                 return
 
-        staff_role = discord.utils.get(guild.roles, name=CARGO_STAFF)
+        staff_role = guild.get_role(STAFF_ROLE_ID)
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             user: discord.PermissionOverwrite(view_channel=True, send_messages=True),
@@ -98,7 +99,7 @@ async def on_interaction(interaction: discord.Interaction):
 
     # ----------------- FECHAR TICKET -----------------
     elif interaction.data["custom_id"] == "fechar_ticket":
-        staff_role = discord.utils.get(interaction.guild.roles, name=CARGO_STAFF)
+        staff_role = guild.get_role(STAFF_ROLE_ID)
         if staff_role not in interaction.user.roles:
             await interaction.response.send_message("❌ Apenas a staff pode fechar o ticket.", ephemeral=True)
             return
@@ -146,7 +147,7 @@ async def on_interaction(interaction: discord.Interaction):
             return
 
         ultimo_item = carrinho[-1]
-        qr_file = f"pix_{ultimo_item['nome'].split()[0]}.png"  # pix_1, pix_2, etc.
+        qr_file = f"pix_{ultimo_item['nome'].split()[0]}.png"  # pix_1.png, pix_2.png etc.
 
         embed = discord.Embed(
             title="💳 Pagamento",
@@ -165,34 +166,48 @@ async def on_interaction(interaction: discord.Interaction):
             return
 
         guild = interaction.guild
-        staff_role = discord.utils.get(guild.roles, name=CARGO_STAFF)
+        staff_role = guild.get_role(STAFF_ROLE_ID)
         if not staff_role:
-            await interaction.response.send_message("❌ Role de staff não encontrada.", ephemeral=True)
+            await interaction.response.send_message("❌ Cargo de staff não encontrado.", ephemeral=True)
             return
 
         cliente = await bot.fetch_user(cliente_id)
         staff_enviado = False
+        falha_dm = False
+
         for member in guild.members:
             if staff_role in member.roles:
                 try:
                     embed_staff = discord.Embed(
                         title="🛒 Pedido do Cliente",
-                        description=f"Cliente: {cliente.mention}\nItens:\n" + "\n".join([f"{i['nome']} → R${i['valor']}" for i in carrinho]),
+                        description=f"Cliente: {cliente.mention}\nItens:\n" +
+                                    "\n".join([f"{i['nome']} → R${i['valor']}" for i in carrinho]),
                         color=discord.Color.blurple()
                     )
                     await member.send(embed=embed_staff, view=StaffView(cliente_id))
                     staff_enviado = True
                 except:
-                    pass
+                    falha_dm = True
 
         if staff_enviado:
-            await interaction.response.send_message("👮 Staff foi chamada! Aguarde a liberação da conta.", ephemeral=True)
+            msg = "👮 Staff foi chamada! Aguarde a liberação da conta."
+            if falha_dm:
+                msg += "\n⚠️ Alguns staffs não puderam receber a DM, então a notificação também aparecerá no canal do ticket."
+                canal_ticket = interaction.channel
+                if canal_ticket:
+                    await canal_ticket.send(f"⚠️ Staff, o cliente {cliente.mention} realizou o pagamento! "
+                                            f"Verifique os itens e use o botão de liberação.")
+            await interaction.response.send_message(msg, ephemeral=True)
         else:
-            await interaction.response.send_message("❌ Nenhum staff disponível para receber o pedido.", ephemeral=True)
+            canal_ticket = interaction.channel
+            if canal_ticket:
+                await canal_ticket.send(f"❌ Nenhum staff conseguiu receber a DM, mas o cliente {cliente.mention} realizou o pagamento! "
+                                        "Algum staff, por favor, libere a conta usando o botão correspondente.")
+            await interaction.response.send_message("❌ Nenhum staff conseguiu receber a DM. A notificação foi enviada no canal do ticket.", ephemeral=True)
 
     # ----------------- LIBERAR CONTA (STAFF) -----------------
     elif interaction.data["custom_id"].startswith("liberar_conta_"):
-        staff_role = discord.utils.get(interaction.guild.roles, name=CARGO_STAFF)
+        staff_role = guild.get_role(STAFF_ROLE_ID)
         if staff_role not in interaction.user.roles:
             await interaction.response.send_message("❌ Apenas a staff pode liberar a conta.", ephemeral=True)
             return
