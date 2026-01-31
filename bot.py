@@ -135,7 +135,7 @@ async def on_interaction(interaction: discord.Interaction):
             return
 
         ultimo_item = carrinho[-1]
-        qr_file = f"pix_{ultimo_item['nome'].split()[0]}.png"  # pix_1.png, pix_2.png etc.
+        qr_file = f"pix_{ultimo_item['nome'].split()[0]}.png"  # exemplo: pix_1.png
 
         embed = discord.Embed(
             title="💳 Pagamento",
@@ -143,7 +143,6 @@ async def on_interaction(interaction: discord.Interaction):
             color=discord.Color.green()
         )
 
-        # Aparece botão "Chamar Staff" após gerar QR
         view = ui.View()
         view.add_item(ui.Button(
             label="👮 Chamar Staff",
@@ -158,7 +157,6 @@ async def on_interaction(interaction: discord.Interaction):
         cliente_id = int(interaction.data["custom_id"].split("_")[-1])
         cliente = await bot.fetch_user(cliente_id)
 
-        # Cria botão "Liberar Conta" para staff
         view = ui.View()
         view.add_item(ui.Button(
             label="✅ Liberar Conta (Staff)",
@@ -186,16 +184,22 @@ async def on_interaction(interaction: discord.Interaction):
             return
 
         cliente = await bot.fetch_user(cliente_id)
-        mensagem = "✅ Pagamento confirmado! Aqui estão seus logins:\n"
+        mensagem_dm = "✅ Pagamento confirmado! Aqui estão seus logins:\n"
+        mensagem_chat = f"✅ Pagamento confirmado do cliente {cliente.mention}! Logins:\n"
+
         for item in carrinho:
-            mensagem += f"**{item['nome']}** → Login: `{item['login']}`, Senha: `{item['senha']}`\n"
+            mensagem_dm += f"**{item['nome']}** → Login: `{item['login']}`, Senha: `{item['senha']}`\n"
+            mensagem_chat += f"**{item['nome']}** → Login: `{item['login']}`, Senha: `{item['senha']}`\n"
+
         CARRINHOS[cliente_id] = []
 
         try:
-            await cliente.send(mensagem)
-            await interaction.response.send_message(f"✅ Conta do cliente {cliente.name} liberada com sucesso!", ephemeral=True)
+            await cliente.send(mensagem_dm)
         except:
             await interaction.response.send_message("❌ Não foi possível enviar DM para o cliente.", ephemeral=True)
+            return
+
+        await interaction.response.send_message(mensagem_chat, ephemeral=False)
 
 # ================= COMANDOS =================
 @bot.command()
