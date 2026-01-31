@@ -18,7 +18,7 @@ CATEGORIA_TICKET = "Tickets"
 async def on_ready():
     print(f"Bot conectado como {bot.user}")
 
-# ================= BOTÕES =================
+# ================= BOTÕES E SELECT MENU =================
 
 class TicketView(ui.View):
     def __init__(self):
@@ -59,11 +59,34 @@ class TicketView(ui.View):
             overwrites=overwrites
         )
 
+        # Select Menu para escolher conta
+        class SelecionarContaView(ui.View):
+            def __init__(self):
+                super().__init__(timeout=None)
+                self.add_item(ui.StringSelect(
+                    placeholder="Selecione a opção de conta desejada",
+                    options=[
+                        discord.SelectOption(label="1 mítica aleatória", value="1_mitica"),
+                        discord.SelectOption(label="2 míticas aleatórias", value="2_miticas"),
+                        discord.SelectOption(label="3 míticas aleatórias", value="3_miticas")
+                    ],
+                    custom_id="selecionar_conta"
+                ))
+
+            @ui.select(custom_id="selecionar_conta")
+            async def select_callback(self, select_interaction: discord.Interaction, select):
+                escolha = select.values[0]
+                await select_interaction.response.send_message(
+                    f"✅ Você selecionou: **{escolha.replace('_', ' ')}**",
+                    ephemeral=True
+                )
+                # Aqui você pode chamar sua função para entregar a conta
+                # entregar_conta(select_interaction.user.id, escolha)
+
         await canal.send(
             f"🎫 **Ticket aberto!**\n\n"
-            f"{user.mention}, descreva seu pedido.\n"
-            f"Um membro da staff irá te atender.",
-            view=FecharTicketView()
+            f"{user.mention}, descreva seu pedido ou selecione sua conta abaixo:",
+            view=FecharTicketView() + SelecionarContaView()
         )
 
         await interaction.response.send_message(
